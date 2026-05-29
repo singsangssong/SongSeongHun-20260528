@@ -7,11 +7,13 @@ export class ChatService {
     userPreferenceRepository,
     chatSessionRepository,
     chatMessageRepository,
+    ragWorkflow = null,
   }) {
     this.userRepository = userRepository;
     this.userPreferenceRepository = userPreferenceRepository;
     this.chatSessionRepository = chatSessionRepository;
     this.chatMessageRepository = chatMessageRepository;
+    this.ragWorkflow = ragWorkflow;
   }
 
   async sendMessage({ externalUserId = 'demo-user', message }) {
@@ -37,6 +39,41 @@ export class ChatService {
       role: 'user',
       content: message.trim(),
     });
+
+    if (preference.isOnboardingCompleted && this.ragWorkflow) {
+      const ragResult = await this.ragWorkflow.invoke({
+        userId: user.externalId,
+        message: message.trim(),
+        userPreferences: preference,
+      });
+
+      await this.chatMessageRepository.create({
+        sessionId: session.id,
+        userId: user.id,
+        role: 'assistant',
+        content: ragResult.answer,
+        metadata: {
+          next_action: ragResult.nextAction,
+          retrieved_document_ids: ragResult.retrievedDocuments.map(
+            (document) => document.id,
+          ),
+        },
+      });
+
+      return {
+        statusCode: 200,
+        body: {
+          user_id: user.externalId,
+          session_id: session.id,
+          is_onboarding_completed: true,
+          next_action: ragResult.nextAction,
+          message: ragResult.answer,
+          retrieved_document_ids: ragResult.retrievedDocuments.map(
+            (document) => document.id,
+          ),
+        },
+      };
+    }
 
     await this.chatMessageRepository.create({
       sessionId: session.id,

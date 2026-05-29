@@ -1,4 +1,4 @@
-import { ChatSession } from '../../../domain/chat/ChatSession.js';
+import { ChatSession } from '../entity/chat-session.entity.js';
 
 export class ChatSessionRepository {
   constructor(db) {
@@ -19,4 +19,3 @@ export class ChatSessionRepository {
     });
   }
 }
-

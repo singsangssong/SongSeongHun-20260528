@@ -1,4 +1,4 @@
-import './infrastructure/config/loadEnv.js';
+import './global/config/load-env.js';
 import { createApp } from './app.js';
 
 const port = Number(process.env.API_PORT || 3000);

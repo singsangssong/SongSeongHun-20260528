@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
-import { ChatMessageRepository } from '../src/infrastructure/db/repositories/ChatMessageRepository.js';
-import { ChatSessionRepository } from '../src/infrastructure/db/repositories/ChatSessionRepository.js';
-import { ProductChunkRepository } from '../src/infrastructure/db/repositories/ProductChunkRepository.js';
-import { ProductRepository } from '../src/infrastructure/db/repositories/ProductRepository.js';
-import { UserPreferenceRepository } from '../src/infrastructure/db/repositories/UserPreferenceRepository.js';
-import { UserRepository } from '../src/infrastructure/db/repositories/UserRepository.js';
+import { ChatMessageRepository } from '../src/domain/chat/repository/chat-message.repository.js';
+import { ChatSessionRepository } from '../src/domain/chat/repository/chat-session.repository.js';
+import { ProductChunkRepository } from '../src/domain/product/repository/product-chunk.repository.js';
+import { ProductRepository } from '../src/domain/product/repository/product.repository.js';
+import { UserPreferenceRepository } from '../src/domain/user/repository/user-preference.repository.js';
+import { UserRepository } from '../src/domain/user/repository/user.repository.js';
 
 class FakeDb {
   constructor(results = []) {

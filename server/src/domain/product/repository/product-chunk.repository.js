@@ -1,5 +1,5 @@
-import { ProductChunk } from '../../../domain/product/ProductChunk.js';
-import { stringifyJsonField } from '../json.js';
+import { stringifyJsonField } from '../../../global/db/json.js';
+import { ProductChunk } from '../entity/product-chunk.entity.js';
 
 export class ProductChunkRepository {
   constructor(db) {
@@ -31,4 +31,3 @@ export class ProductChunkRepository {
     });
   }
 }
-

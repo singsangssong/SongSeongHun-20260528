@@ -9,6 +9,22 @@ client/   React chat UI
 server/   Node.js API server
 ```
 
+Server code follows a feature-first shape:
+
+```text
+server/src/
+├── domain
+│   ├── chat
+│   ├── product
+│   ├── rag
+│   └── user
+└── global
+    ├── config
+    ├── db
+    ├── llm
+    └── vector
+```
+
 ## Local Run
 
 ```bash

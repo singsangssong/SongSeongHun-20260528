@@ -1,4 +1,4 @@
-import { User } from '../../../domain/user/User.js';
+import { User } from '../entity/user.entity.js';
 
 function toUser(row) {
   if (!row) return null;
@@ -41,4 +41,3 @@ export class UserRepository {
     });
   }
 }
-

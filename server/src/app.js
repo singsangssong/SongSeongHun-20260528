@@ -1,15 +1,20 @@
 import cors from 'cors';
 import express from 'express';
-import { ChatController } from './app/http/controllers/ChatController.js';
-import { createChatRouter } from './app/http/routes/chatRoutes.js';
-import { ChatService } from './application/chat/ChatService.js';
-import { createRepositories } from './infrastructure/db/createRepositories.js';
+import { ChatController } from './domain/chat/controller/chat.controller.js';
+import { createChatRouter } from './domain/chat/routes/chat.routes.js';
+import { ChatService } from './domain/chat/service/chat.service.js';
+import { createDefaultRagWorkflow } from './domain/rag/service/create-default-rag-workflow.js';
+import { createRepositories } from './global/db/create-repositories.js';
 
-export function createApp({ chatService } = {}) {
+export async function createApp({ chatService } = {}) {
   const app = express();
 
   const resolvedChatService =
-    chatService ?? new ChatService(createRepositories());
+    chatService ??
+    new ChatService({
+      ...createRepositories(),
+      ragWorkflow: await createDefaultRagWorkflow(),
+    });
   const chatController = new ChatController({
     chatService: resolvedChatService,
   });

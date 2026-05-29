@@ -1,5 +1,5 @@
-import '../src/infrastructure/config/loadEnv.js';
-import { createDatabasePool, runCoreMigration } from '../src/infrastructure/db/database.js';
+import '../src/global/config/load-env.js';
+import { createDatabasePool, runCoreMigration } from '../src/global/db/database.js';
 
 const db = createDatabasePool();
 

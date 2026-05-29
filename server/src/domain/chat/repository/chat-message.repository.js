@@ -1,5 +1,5 @@
-import { ChatMessage } from '../../../domain/chat/ChatMessage.js';
-import { stringifyJsonField } from '../json.js';
+import { stringifyJsonField } from '../../../global/db/json.js';
+import { ChatMessage } from '../entity/chat-message.entity.js';
 
 export class ChatMessageRepository {
   constructor(db) {
@@ -23,4 +23,3 @@ export class ChatMessageRepository {
     });
   }
 }
-

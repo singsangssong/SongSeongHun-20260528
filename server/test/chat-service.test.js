@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ChatService } from '../src/application/chat/ChatService.js';
-import { ChatMessage } from '../src/domain/chat/ChatMessage.js';
-import { ChatSession } from '../src/domain/chat/ChatSession.js';
-import { UserPreference } from '../src/domain/user/UserPreference.js';
-import { User } from '../src/domain/user/User.js';
+import { ChatMessage } from '../src/domain/chat/entity/chat-message.entity.js';
+import { ChatSession } from '../src/domain/chat/entity/chat-session.entity.js';
+import { ChatService } from '../src/domain/chat/service/chat.service.js';
+import { UserPreference } from '../src/domain/user/entity/user-preference.entity.js';
+import { User } from '../src/domain/user/entity/user.entity.js';
 
 function createRepositories() {
   const calls = [];
@@ -86,5 +86,45 @@ describe('ChatService', () => {
     assert.equal(result.statusCode, 400);
     assert.equal(result.body.error, 'message is required');
     assert.deepEqual(repositories.calls, []);
+  });
+
+  it('uses RAG workflow when onboarding is completed', async () => {
+    const repositories = createRepositories();
+    repositories.userRepository.findByExternalId = async (externalId) => {
+      repositories.calls.push(['findUser', externalId]);
+      return new User({ id: 1, externalId });
+    };
+    repositories.userPreferenceRepository.findByUserId = async (userId) => {
+      repositories.calls.push(['findPreference', userId]);
+      return new UserPreference({
+        id: 2,
+        userId,
+        healthConcerns: ['피로'],
+        isOnboardingCompleted: true,
+        onboardingStep: 3,
+      });
+    };
+
+    const service = new ChatService({
+      ...repositories,
+      ragWorkflow: {
+        async invoke({ message, userPreferences }) {
+          return {
+            nextAction: 'RESPOND',
+            answer: `RAG answer: ${message} / ${userPreferences.healthConcerns[0]}`,
+            retrievedDocuments: [{ id: 'vitamin-b-ingredient' }],
+          };
+        },
+      },
+    });
+
+    const result = await service.sendMessage({
+      externalUserId: 'demo-user',
+      message: '피로에 좋은 영양제를 추천해줘',
+    });
+
+    assert.equal(result.body.next_action, 'RESPOND');
+    assert.match(result.body.message, /RAG answer/);
+    assert.deepEqual(result.body.retrieved_document_ids, ['vitamin-b-ingredient']);
   });
 });

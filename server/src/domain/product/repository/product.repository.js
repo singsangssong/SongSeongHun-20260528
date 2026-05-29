@@ -1,4 +1,4 @@
-import { Product } from '../../../domain/product/Product.js';
+import { Product } from '../entity/product.entity.js';
 
 export class ProductRepository {
   constructor(db) {
@@ -28,4 +28,3 @@ export class ProductRepository {
     });
   }
 }
-

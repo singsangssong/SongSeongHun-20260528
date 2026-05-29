@@ -1,5 +1,5 @@
-import { UserPreference } from '../../../domain/user/UserPreference.js';
-import { parseJsonField, stringifyJsonField } from '../json.js';
+import { parseJsonField, stringifyJsonField } from '../../../global/db/json.js';
+import { UserPreference } from '../entity/user-preference.entity.js';
 
 function toUserPreference(row) {
   if (!row) return null;
@@ -60,4 +60,3 @@ export class UserPreferenceRepository {
     });
   }
 }
-

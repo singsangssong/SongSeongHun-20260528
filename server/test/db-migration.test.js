@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
 const migration = readFileSync(
-  new URL('../src/infrastructure/db/migrations/001_create_core_tables.sql', import.meta.url),
+  new URL('../src/global/db/migrations/001_create_core_tables.sql', import.meta.url),
   'utf8',
 );
 
