@@ -70,6 +70,7 @@ async function createWorkflow({
   return new ChatRagWorkflow({
     vectorStore,
     chatModel,
+    intentClassifier: chatModel,
     productContextLoader: productChunkRepository
       ? {
           loadByProductIds(productIds) {

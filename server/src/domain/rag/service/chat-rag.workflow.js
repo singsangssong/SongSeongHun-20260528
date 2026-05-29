@@ -17,6 +17,10 @@ const State = Annotation.Root({
     reducer: (_left, right) => right,
     default: () => 'SEARCH_RAG',
   }),
+  intent: Annotation({
+    reducer: (_left, right) => right,
+    default: () => 'RECOMMENDATION',
+  }),
   retrievedDocuments: Annotation({
     reducer: (_left, right) => right,
     default: () => [],
@@ -73,11 +77,13 @@ export class ChatRagWorkflow {
     chatModel,
     minSimilarityScore = 0.2,
     productContextLoader = null,
+    intentClassifier = null,
   }) {
     this.vectorStore = vectorStore;
     this.chatModel = chatModel;
     this.minSimilarityScore = minSimilarityScore;
     this.productContextLoader = productContextLoader;
+    this.intentClassifier = intentClassifier;
     this.graph = this.createGraph();
   }
 
@@ -87,6 +93,7 @@ export class ChatRagWorkflow {
       userId,
       userPreferences,
       nextAction: 'SEARCH_RAG',
+      intent: 'RECOMMENDATION',
       retrievedDocuments: [],
       contextDocuments: [],
       recommendations: [],
@@ -101,11 +108,21 @@ export class ChatRagWorkflow {
 
   createGraph() {
     return new StateGraph(State)
+      .addNode('classifyIntent', this.classifyIntentNode)
+      .addNode('respondDirectly', this.respondDirectlyNode)
       .addNode('checkContextGap', this.checkContextGapNode)
       .addNode('askFollowUp', this.askFollowUpNode)
       .addNode('retrieve', this.retrieveNode)
       .addNode('generate', this.generateNode)
-      .addEdge(START, 'checkContextGap')
+      .addEdge(START, 'classifyIntent')
+      .addConditionalEdges(
+        'classifyIntent',
+        (state) => (state.intent === 'RECOMMENDATION' ? 'checkContextGap' : 'respondDirectly'),
+        {
+          checkContextGap: 'checkContextGap',
+          respondDirectly: 'respondDirectly',
+        },
+      )
       .addConditionalEdges(
         'checkContextGap',
         (state) => (state.contextGap.hasGap ? 'askFollowUp' : 'retrieve'),
@@ -114,11 +131,43 @@ export class ChatRagWorkflow {
           retrieve: 'retrieve',
         },
       )
+      .addEdge('respondDirectly', END)
       .addEdge('askFollowUp', END)
       .addEdge('retrieve', 'generate')
       .addEdge('generate', END)
       .compile();
   }
+
+  classifyIntentNode = async (state) => {
+    const message = state.messages.at(-1)?.content ?? '';
+    const classification = await this.classifyIntent({
+      question: message,
+      userPreferences: state.userPreferences,
+    });
+
+    return {
+      intent: classification.intent ?? 'RECOMMENDATION',
+    };
+  };
+
+  respondDirectlyNode = async (state) => {
+    const question = state.messages.at(-1)?.content ?? '';
+    const answer = await this.generateConversationalReply({
+      intent: state.intent,
+      question,
+      userPreferences: state.userPreferences,
+    });
+
+    return {
+      answer:
+        answer ||
+        '건강기능식품 추천과 관련해 피로, 수면, 장 건강, 복용 중인 약, 피하고 싶은 성분을 알려주시면 이어서 도와드릴게요.',
+      retrievedDocuments: [],
+      contextDocuments: [],
+      recommendations: [],
+      nextAction: 'RESPOND',
+    };
+  };
 
   checkContextGapNode = async (state) => {
     const question = state.messages.at(-1)?.content ?? '';
@@ -239,6 +288,35 @@ export class ChatRagWorkflow {
 
     const loadedDocuments = await this.productContextLoader.loadByProductIds(productIds);
     return mergeContextDocuments(loadedDocuments, retrievedDocuments);
+  }
+
+  async classifyIntent(input) {
+    if (typeof this.intentClassifier?.classify === 'function') {
+      return this.intentClassifier.classify(input);
+    }
+
+    if (typeof this.intentClassifier?.classifyIntent === 'function') {
+      return this.intentClassifier.classifyIntent(input);
+    }
+
+    if (typeof this.chatModel?.classifyIntent === 'function') {
+      return this.chatModel.classifyIntent(input);
+    }
+
+    throw new Error(
+      'ChatRagWorkflow requires an intent classifier with classify() or classifyIntent().',
+    );
+  }
+
+  async generateConversationalReply(input) {
+    if (typeof this.chatModel?.generateConversationalReply === 'function') {
+      return this.chatModel.generateConversationalReply(input);
+    }
+
+    return [
+      '지금 메시지는 상품 검색으로 바로 이어가기보다 맥락을 먼저 맞추는 게 좋아 보여요.',
+      '건강기능식품 추천과 관련해 피로, 수면, 장 건강, 복용 중인 약, 피하고 싶은 성분을 알려주시면 이어서 도와드릴게요.',
+    ].join(' ');
   }
 }
 

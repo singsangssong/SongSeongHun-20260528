@@ -138,11 +138,18 @@ export class OnboardingService {
 
     if (!ageGroup || healthConcerns.length === 0) {
       const hasSavedSafetyContext = patch.safetyNotes.length > (preference.safetyNotes ?? []).length;
+      const missingParts = [
+        !ageGroup ? '연령대' : null,
+        healthConcerns.length === 0 ? '건강 고민' : null,
+      ].filter(Boolean).join('와 ');
+      const reaskMessage =
+        `이번 답변만으로는 ${missingParts}을 확인하기 어려워요. ` +
+        onboardingQuestions.healthConcern;
       return this.reask({
         patch: { ...patch, ageGroup, gender, healthConcerns, goals, onboardingStep: 0 },
         message: hasSavedSafetyContext
-          ? `말씀해주신 질환/복용 관련 정보는 저장했어요. ${onboardingQuestions.healthConcern}`
-          : onboardingQuestions.healthConcern,
+          ? `말씀해주신 질환/복용 관련 정보는 저장했어요. ${reaskMessage}`
+          : reaskMessage,
       });
     }
 

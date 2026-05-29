@@ -12,6 +12,10 @@ class FakeEmbeddingProvider {
 }
 
 class FakeChatModel {
+  async classifyIntent() {
+    return { intent: 'RECOMMENDATION', reason: 'test recommendation intent' };
+  }
+
   async generate({ documents }) {
     return documents.map((document) => document.title).join(', ');
   }

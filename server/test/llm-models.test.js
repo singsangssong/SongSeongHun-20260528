@@ -66,4 +66,69 @@ describe('LLM models', () => {
     }
     assert.match(prompt, /진단, 치료, 처방처럼 단정하지 말고/);
   });
+
+  it('asks OpenAI to classify chat intent with a strict JSON prompt', async () => {
+    const calls = [];
+    const model = new OpenAIChatModel({
+      client: {
+        chat: {
+          completions: {
+            async create(payload) {
+              calls.push(payload);
+              return {
+                choices: [
+                  {
+                    message: {
+                      content: '{"intent":"OFF_TOPIC","reason":"weather question"}',
+                    },
+                  },
+                ],
+              };
+            },
+          },
+        },
+      },
+    });
+
+    const result = await model.classifyIntent({
+      question: '오늘 날씨 어때?',
+      userPreferences: { healthConcerns: ['피로'] },
+    });
+
+    assert.equal(result.intent, 'OFF_TOPIC');
+    const prompt = calls[0].messages.map((message) => message.content).join('\n');
+    assert.match(prompt, /반드시 JSON/);
+    assert.match(prompt, /RECOMMENDATION/);
+    assert.match(prompt, /CLARIFICATION/);
+    assert.match(prompt, /OFF_TOPIC/);
+  });
+
+  it('asks OpenAI for a conversational reply without product recommendation format', async () => {
+    const calls = [];
+    const model = new OpenAIChatModel({
+      client: {
+        chat: {
+          completions: {
+            async create(payload) {
+              calls.push(payload);
+              return {
+                choices: [{ message: { content: '자연스러운 응답' } }],
+              };
+            },
+          },
+        },
+      },
+    });
+
+    const answer = await model.generateConversationalReply({
+      intent: 'CLARIFICATION',
+      question: '뭐라는 거야?',
+      userPreferences: { healthConcerns: ['피로'] },
+    });
+
+    assert.equal(answer, '자연스러운 응답');
+    const prompt = calls[0].messages.map((message) => message.content).join('\n');
+    assert.match(prompt, /상품 검색 결과를 만들지 않는다/);
+    assert.doesNotMatch(prompt, /추천 요약/);
+  });
 });

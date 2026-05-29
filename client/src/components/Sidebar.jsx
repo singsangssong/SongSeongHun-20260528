@@ -22,16 +22,20 @@ export function Sidebar({
       </button>
       <div className="sessionList">
         <span>채팅방</span>
-        {sessions.map((session) => (
-          <button
-            className={session.id === sessionId ? 'active' : ''}
-            key={session.id}
-            type="button"
-            onClick={() => onSelectSession(session.id)}
-          >
-            {session.title || `대화 ${session.id}`}
-          </button>
-        ))}
+        {sessions.length === 0 ? (
+          <p className="emptyState">아직 저장된 대화가 없어요.</p>
+        ) : (
+          sessions.map((session) => (
+            <button
+              className={session.id === sessionId ? 'active' : ''}
+              key={session.id}
+              type="button"
+              onClick={() => onSelectSession(session.id)}
+            >
+              {session.title || `대화 ${session.id}`}
+            </button>
+          ))
+        )}
       </div>
     </aside>
   );

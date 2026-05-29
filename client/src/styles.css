@@ -19,6 +19,13 @@ input {
   font: inherit;
 }
 
+button {
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
 .app {
   min-height: 100vh;
   display: grid;
@@ -69,7 +76,7 @@ input {
   gap: 10px;
   border-right: 1px solid #e7ebf0;
   padding: 18px;
-  background: #fbfcfe;
+  background: #f7fafb;
 }
 
 .sidebar span,
@@ -95,6 +102,17 @@ input {
   gap: 8px;
   margin-top: 10px;
   overflow-y: auto;
+}
+
+.emptyState {
+  margin: 0;
+  border: 1px dashed #cfd6df;
+  border-radius: 8px;
+  padding: 12px;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.4;
+  background: #ffffff;
 }
 
 .sessionList button {
@@ -265,13 +283,21 @@ input {
   white-space: nowrap;
 }
 
+.statusDone {
+  color: #157348;
+}
+
+.statusPending {
+  color: #b54708;
+}
+
 .messages {
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 22px;
   overflow-y: auto;
-  background: #f8fafc;
+  background: #f6f8fb;
 }
 
 .message {
@@ -294,6 +320,7 @@ input {
   border-color: #dce4ea;
   background: #ffffff;
   color: #253040;
+  box-shadow: 0 4px 14px rgb(31 41 55 / 5%);
 }
 
 .message.user .messageMeta {
@@ -346,7 +373,7 @@ input {
 .quickPrompts {
   display: flex;
   gap: 8px;
-  padding: 14px 18px 4px;
+  padding: 12px 18px 6px;
   overflow-x: auto;
   border-top: 1px solid #e7ebf0;
   background: #ffffff;

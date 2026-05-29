@@ -14,6 +14,13 @@ class FakeEmbeddingProvider {
 }
 
 class FakeChatModel {
+  async classifyIntent({ question }) {
+    return {
+      intent: question.includes('날씨') ? 'OFF_TOPIC' : 'RECOMMENDATION',
+      reason: 'test intent classifier',
+    };
+  }
+
   async generate({ question, documents, userPreferences }) {
     return [
       `질문: ${question}`,
@@ -21,9 +28,82 @@ class FakeChatModel {
       `근거: ${documents.map((document) => document.title).join(', ')}`,
     ].join('\n');
   }
+
+  async generateConversationalReply({ intent }) {
+    return `conversation: ${intent}`;
+  }
 }
 
+const recommendationIntentClassifier = {
+  async classify() {
+    return { intent: 'RECOMMENDATION', reason: 'test recommendation intent' };
+  },
+};
+
 describe('RAG workflow', () => {
+  it('answers clarification messages without running product retrieval', async () => {
+    let searchCount = 0;
+    let conversationalReplyCount = 0;
+    const workflow = new ChatRagWorkflow({
+      vectorStore: {
+        async similaritySearch() {
+          searchCount += 1;
+          return [];
+        },
+      },
+      chatModel: {
+        async generateConversationalReply({ intent, question }) {
+          conversationalReplyCount += 1;
+          return `conversational ${intent}: ${question}`;
+        },
+      },
+      intentClassifier: {
+        async classify() {
+          return { intent: 'CLARIFICATION', reason: 'user asks for simpler explanation' };
+        },
+      },
+    });
+
+    const result = await workflow.invoke({
+      userId: 'demo-user',
+      message: '뭐라는 거야? 더 쉽게 말해줘',
+      userPreferences: {
+        healthConcerns: ['피로'],
+      },
+    });
+
+    assert.equal(searchCount, 0);
+    assert.equal(conversationalReplyCount, 1);
+    assert.equal(result.nextAction, 'RESPOND');
+    assert.deepEqual(result.retrievedDocuments, []);
+    assert.match(result.answer, /conversational CLARIFICATION/);
+  });
+
+  it('redirects off-topic messages back to supplement recommendation', async () => {
+    let searchCount = 0;
+    const workflow = new ChatRagWorkflow({
+      vectorStore: {
+        async similaritySearch() {
+          searchCount += 1;
+          return [];
+        },
+      },
+      chatModel: new FakeChatModel(),
+    });
+
+    const result = await workflow.invoke({
+      userId: 'demo-user',
+      message: '오늘 날씨 어때?',
+      userPreferences: {
+        healthConcerns: ['피로'],
+      },
+    });
+
+    assert.equal(searchCount, 0);
+    assert.equal(result.nextAction, 'RESPOND');
+    assert.match(result.answer, /conversation: OFF_TOPIC/);
+  });
+
   it('retrieves relevant product documents and generates an answer', async () => {
     let generatedDocumentTitles = [];
     const vectorStore = new InMemoryVectorStore({
@@ -66,6 +146,7 @@ describe('RAG workflow', () => {
           return new FakeChatModel().generate(input);
         },
       },
+      intentClassifier: recommendationIntentClassifier,
     });
 
     const result = await workflow.invoke({
@@ -126,6 +207,7 @@ describe('RAG workflow', () => {
           return 'expanded answer';
         },
       },
+      intentClassifier: recommendationIntentClassifier,
       productContextLoader: {
         async loadByProductIds(productIds) {
           assert.deepEqual(productIds, [6]);
@@ -217,6 +299,7 @@ describe('RAG workflow', () => {
           return 'should not be used';
         },
       },
+      intentClassifier: recommendationIntentClassifier,
       minSimilarityScore: 0.2,
     });
 
@@ -249,6 +332,7 @@ describe('RAG workflow', () => {
           return 'should not be used';
         },
       },
+      intentClassifier: recommendationIntentClassifier,
     });
 
     const result = await workflow.invoke({

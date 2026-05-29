@@ -72,4 +72,10 @@ MYSQL_PASSWORD=levit_password
 MYSQL_ROOT_PASSWORD=root_password
 
 OPENAI_API_KEY=
+AUTH_TOKEN_SECRET=local-dev-secret
+CLIENT_ORIGIN=http://localhost:5173
+VITE_API_BASE_URL=http://localhost:3000
 ```
+
+
+과제 구현에 대한 설명, 강조하고 싶은 부분, 설계 의도, 아쉬웠던 점이나, 더 개선할 여지가 있는 부분 등

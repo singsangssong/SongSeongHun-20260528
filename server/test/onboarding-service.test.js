@@ -28,6 +28,23 @@ describe('OnboardingService', () => {
 
     assert.equal(result.preferencePatch.onboardingStep, 0);
     assert.equal(result.preferencePatch.isOnboardingCompleted, false);
+    assert.match(result.assistantMessage, /확인하기 어려워요/);
+    assert.match(result.assistantMessage, /연령대와 건강 고민/);
+  });
+
+  it('keeps safety context and explains what is still missing during profile step', () => {
+    const service = new OnboardingService();
+    const result = service.handleAnswer({
+      preference: new UserPreference({ id: 1, userId: 1 }),
+      message: '임신은 아니고 갑상선 질환으로 관리 중이에요',
+    });
+
+    assert.equal(result.preferencePatch.pregnancyStatus, null);
+    assert.deepEqual(result.preferencePatch.safetyNotes, [
+      '갑상선 질환',
+      'not_pregnant',
+    ]);
+    assert.match(result.assistantMessage, /질환\/복용 관련 정보는 저장/);
     assert.match(result.assistantMessage, /연령대와 건강 고민/);
   });
 

@@ -42,7 +42,9 @@ export function ChatPanel({
         </div>
         <div>
           <span>온보딩</span>
-          <strong>{isOnboardingCompleted ? '완료' : '진행 중'}</strong>
+          <strong className={isOnboardingCompleted ? 'statusDone' : 'statusPending'}>
+            {isOnboardingCompleted ? '완료' : '진행 중'}
+          </strong>
         </div>
         <div>
           <span>다음 액션</span>
