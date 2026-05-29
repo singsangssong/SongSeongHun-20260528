@@ -24,8 +24,14 @@ function createChatService() {
       async createDefault() {
         return preference;
       },
+      async updateOnboarding({ userId, patch }) {
+        return new UserPreference({ userId, ...patch });
+      },
     },
     chatSessionRepository: {
+      async findByIdForUser() {
+        return null;
+      },
       async create({ userId, title }) {
         return { id: 10, userId, title };
       },
@@ -49,7 +55,7 @@ describe('chat response', () => {
     assert.equal(response.body.user_id, 'demo-user');
     assert.equal(response.body.session_id, 10);
     assert.equal(response.body.next_action, 'ASK_QUESTION');
-    assert.match(response.body.message, /건강 고민/);
+    assert.match(response.body.message, /연령대/);
   });
 
   it('rejects an empty message', async () => {

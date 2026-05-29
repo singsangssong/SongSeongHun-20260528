@@ -1,5 +1,4 @@
-const onboardingQuestion =
-  '정확한 추천을 위해 몇 가지 여쭤볼게요. 현재 가장 큰 건강 고민은 무엇인가요? 예: 피로, 수면, 눈 건강, 갱년기, 장 건강';
+import { OnboardingService } from '../../onboarding/service/onboarding.service.js';
 
 export class ChatService {
   constructor({
@@ -7,16 +6,18 @@ export class ChatService {
     userPreferenceRepository,
     chatSessionRepository,
     chatMessageRepository,
+    onboardingService = new OnboardingService(),
     ragWorkflow = null,
   }) {
     this.userRepository = userRepository;
     this.userPreferenceRepository = userPreferenceRepository;
     this.chatSessionRepository = chatSessionRepository;
     this.chatMessageRepository = chatMessageRepository;
+    this.onboardingService = onboardingService;
     this.ragWorkflow = ragWorkflow;
   }
 
-  async sendMessage({ externalUserId = 'demo-user', message }) {
+  async sendMessage({ externalUserId = 'demo-user', message, sessionId = null }) {
     if (!message || typeof message !== 'string' || !message.trim()) {
       return {
         statusCode: 400,
@@ -28,22 +29,24 @@ export class ChatService {
 
     const user = await this.findOrCreateUser(externalUserId);
     const preference = await this.findOrCreatePreference(user.id);
-    const session = await this.chatSessionRepository.create({
+    const trimmedMessage = message.trim();
+    const session = await this.findOrCreateSession({
+      sessionId,
       userId: user.id,
-      title: message.trim().slice(0, 60),
+      title: trimmedMessage.slice(0, 60),
     });
 
     await this.chatMessageRepository.create({
       sessionId: session.id,
       userId: user.id,
       role: 'user',
-      content: message.trim(),
+      content: trimmedMessage,
     });
 
     if (preference.isOnboardingCompleted && this.ragWorkflow) {
       const ragResult = await this.ragWorkflow.invoke({
         userId: user.externalId,
-        message: message.trim(),
+        message: trimmedMessage,
         userPreferences: preference,
       });
 
@@ -75,13 +78,22 @@ export class ChatService {
       };
     }
 
+    const onboardingResult = this.onboardingService.handleAnswer({
+      preference,
+      message: trimmedMessage,
+    });
+    const updatedPreference = await this.userPreferenceRepository.updateOnboarding({
+      userId: user.id,
+      patch: onboardingResult.preferencePatch,
+    });
+
     await this.chatMessageRepository.create({
       sessionId: session.id,
       userId: user.id,
       role: 'assistant',
-      content: onboardingQuestion,
+      content: onboardingResult.assistantMessage,
       metadata: {
-        next_action: 'ASK_QUESTION',
+        next_action: onboardingResult.nextAction,
       },
     });
 
@@ -90,9 +102,9 @@ export class ChatService {
       body: {
         user_id: user.externalId,
         session_id: session.id,
-        is_onboarding_completed: preference.isOnboardingCompleted,
-        next_action: 'ASK_QUESTION',
-        message: onboardingQuestion,
+        is_onboarding_completed: updatedPreference.isOnboardingCompleted,
+        next_action: onboardingResult.nextAction,
+        message: onboardingResult.assistantMessage,
       },
     };
   }
@@ -112,6 +124,21 @@ export class ChatService {
 
     return this.userPreferenceRepository.createDefault({
       userId,
+    });
+  }
+
+  async findOrCreateSession({ sessionId, userId, title }) {
+    if (sessionId) {
+      const session = await this.chatSessionRepository.findByIdForUser({
+        id: sessionId,
+        userId,
+      });
+      if (session) return session;
+    }
+
+    return this.chatSessionRepository.create({
+      userId,
+      title,
     });
   }
 }

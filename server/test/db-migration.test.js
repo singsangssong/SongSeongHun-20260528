@@ -30,4 +30,17 @@ describe('database migration', () => {
   it('keeps one preference row per user', () => {
     assert.match(migration, /UNIQUE KEY uq_user_preferences_user_id \(user_id\)/);
   });
+
+  it('stores safety and lifestyle onboarding context', () => {
+    for (const columnName of [
+      'pregnancy_status',
+      'chronic_conditions',
+      'medications',
+      'current_supplements',
+      'lifestyle_patterns',
+      'safety_notes',
+    ]) {
+      assert.match(migration, new RegExp(columnName));
+    }
+  });
 });

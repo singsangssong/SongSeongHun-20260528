@@ -6,6 +6,12 @@ export class UserPreference {
     gender = null,
     healthConcerns = [],
     goals = [],
+    pregnancyStatus = null,
+    chronicConditions = [],
+    medications = [],
+    currentSupplements = [],
+    lifestylePatterns = [],
+    safetyNotes = [],
     avoidIngredients = [],
     preferredFormats = [],
     isOnboardingCompleted = false,
@@ -23,6 +29,12 @@ export class UserPreference {
     this.gender = gender;
     this.healthConcerns = healthConcerns;
     this.goals = goals;
+    this.pregnancyStatus = pregnancyStatus;
+    this.chronicConditions = chronicConditions;
+    this.medications = medications;
+    this.currentSupplements = currentSupplements;
+    this.lifestylePatterns = lifestylePatterns;
+    this.safetyNotes = safetyNotes;
     this.avoidIngredients = avoidIngredients;
     this.preferredFormats = preferredFormats;
     this.isOnboardingCompleted = isOnboardingCompleted;
@@ -31,4 +43,3 @@ export class UserPreference {
     this.updatedAt = updatedAt;
   }
 }
-

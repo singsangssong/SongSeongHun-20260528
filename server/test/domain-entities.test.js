@@ -22,6 +22,9 @@ describe('domain entities', () => {
     assert.equal(preference.isOnboardingCompleted, false);
     assert.equal(preference.onboardingStep, 0);
     assert.deepEqual(preference.healthConcerns, []);
+    assert.deepEqual(preference.medications, []);
+    assert.deepEqual(preference.lifestylePatterns, []);
+    assert.deepEqual(preference.safetyNotes, []);
   });
 
   it('creates chat session and message entities', () => {

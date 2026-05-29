@@ -68,6 +68,12 @@ describe('repositories', () => {
           gender: 'female',
           health_concerns: '["fatigue"]',
           goals: '["energy"]',
+          pregnancy_status: 'not_pregnant',
+          chronic_conditions: '["thyroid"]',
+          medications: '["thyroid medicine"]',
+          current_supplements: '["probiotics"]',
+          lifestyle_patterns: '["sleep deprived"]',
+          safety_notes: '["check medication interaction"]',
           avoid_ingredients: '[]',
           preferred_formats: '["tablet"]',
           is_onboarding_completed: 1,
@@ -84,7 +90,88 @@ describe('repositories', () => {
 
     assert.equal(preference.isOnboardingCompleted, true);
     assert.deepEqual(preference.healthConcerns, ['fatigue']);
+    assert.equal(preference.pregnancyStatus, 'not_pregnant');
+    assert.deepEqual(preference.medications, ['thyroid medicine']);
+    assert.deepEqual(preference.safetyNotes, ['check medication interaction']);
     assert.deepEqual(preference.preferredFormats, ['tablet']);
+  });
+
+  it('updates onboarding progress for a user preference', async () => {
+    db.results.push([{ affectedRows: 1 }, []]);
+    db.results.push([
+      [
+        {
+          id: 3,
+          user_id: 1,
+          age_group: '40s',
+          gender: 'female',
+          health_concerns: '["피로"]',
+          goals: '["피로 회복"]',
+          pregnancy_status: 'not_pregnant',
+          chronic_conditions: '["갑상선 질환"]',
+          medications: '["갑상선약"]',
+          current_supplements: '["유산균"]',
+          lifestyle_patterns: '["수면 부족"]',
+          safety_notes: '["갑상선약"]',
+          avoid_ingredients: '["카페인"]',
+          preferred_formats: '["구미"]',
+          is_onboarding_completed: 1,
+          onboarding_step: 4,
+          created_at: null,
+          updated_at: null,
+        },
+      ],
+      [],
+    ]);
+
+    const repository = new UserPreferenceRepository(db);
+    const preference = await repository.updateOnboarding({
+      userId: 1,
+      patch: {
+        ageGroup: '40s',
+        gender: 'female',
+        healthConcerns: ['피로'],
+        goals: ['피로 회복'],
+        pregnancyStatus: 'not_pregnant',
+        chronicConditions: ['갑상선 질환'],
+        medications: ['갑상선약'],
+        currentSupplements: ['유산균'],
+        lifestylePatterns: ['수면 부족'],
+        safetyNotes: ['갑상선약'],
+        avoidIngredients: ['카페인'],
+        preferredFormats: ['구미'],
+        isOnboardingCompleted: true,
+        onboardingStep: 4,
+      },
+    });
+
+    assert.equal(preference.isOnboardingCompleted, true);
+    assert.deepEqual(preference.medications, ['갑상선약']);
+    assert.deepEqual(preference.avoidIngredients, ['카페인']);
+    assert.match(db.calls[0].sql, /UPDATE user_preferences/);
+  });
+
+  it('finds a chat session by id and user id', async () => {
+    db.results.push([
+      [
+        {
+          id: 11,
+          user_id: 1,
+          title: 'Existing',
+          created_at: null,
+          updated_at: null,
+        },
+      ],
+      [],
+    ]);
+
+    const repository = new ChatSessionRepository(db);
+    const session = await repository.findByIdForUser({ id: 11, userId: 1 });
+
+    assert.equal(session.id, 11);
+    assert.equal(session.userId, 1);
+    assert.match(db.calls[0].sql, /FROM chat_sessions/);
+    assert.deepEqual(db.calls[0].params, [11, 1]);
   });
 
   it('creates chat sessions and messages', async () => {

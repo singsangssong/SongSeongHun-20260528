@@ -26,5 +26,28 @@ export async function runCoreMigration(db) {
   );
 
   await db.query(sql);
+  await ensureUserPreferenceColumns(db);
 }
 
+async function ensureUserPreferenceColumns(db) {
+  const columns = [
+    ['pregnancy_status', 'VARCHAR(50) NULL'],
+    ['chronic_conditions', 'JSON NULL'],
+    ['medications', 'JSON NULL'],
+    ['current_supplements', 'JSON NULL'],
+    ['lifestyle_patterns', 'JSON NULL'],
+    ['safety_notes', 'JSON NULL'],
+  ];
+
+  for (const [name, definition] of columns) {
+    try {
+      await db.query(
+        `ALTER TABLE user_preferences ADD COLUMN ${name} ${definition}`,
+      );
+    } catch (error) {
+      if (error.code !== 'ER_DUP_FIELDNAME') {
+        throw error;
+      }
+    }
+  }
+}
