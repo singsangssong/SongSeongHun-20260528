@@ -52,6 +52,13 @@ describe('ChatTurnWorkflow', () => {
             nextAction: 'RESPOND',
             answer: `${userId}: ${message} / ${userPreferences.healthConcerns[0]}`,
             retrievedDocuments: [{ id: 'vitamin-b-ingredient' }],
+            recommendations: [
+              {
+                name: '비타민 B 컴플렉스',
+                brand: 'Sample Health',
+                source_url: 'https://example.test/vitamin-b',
+              },
+            ],
           };
         },
       },
@@ -72,6 +79,13 @@ describe('ChatTurnWorkflow', () => {
     assert.equal(result.nextAction, 'RESPOND');
     assert.match(result.assistantMessage, /demo-user/);
     assert.deepEqual(result.retrievedDocuments, [{ id: 'vitamin-b-ingredient' }]);
+    assert.deepEqual(result.recommendations, [
+      {
+        name: '비타민 B 컴플렉스',
+        brand: 'Sample Health',
+        source_url: 'https://example.test/vitamin-b',
+      },
+    ]);
     assert.equal(result.preferencePatch, null);
   });
 });

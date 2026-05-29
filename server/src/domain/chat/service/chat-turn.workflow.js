@@ -33,6 +33,10 @@ const State = Annotation.Root({
     reducer: (_left, right) => right,
     default: () => [],
   }),
+  recommendations: Annotation({
+    reducer: (_left, right) => right,
+    default: () => [],
+  }),
 });
 
 export class ChatTurnWorkflow {
@@ -52,6 +56,7 @@ export class ChatTurnWorkflow {
       assistantMessage: '',
       preferencePatch: null,
       retrievedDocuments: [],
+      recommendations: [],
     });
   }
 
@@ -94,6 +99,7 @@ export class ChatTurnWorkflow {
       assistantMessage: onboardingResult.assistantMessage,
       preferencePatch: onboardingResult.preferencePatch,
       retrievedDocuments: [],
+      recommendations: [],
     };
   };
 
@@ -109,6 +115,7 @@ export class ChatTurnWorkflow {
       assistantMessage: ragResult.answer,
       preferencePatch: null,
       retrievedDocuments: ragResult.retrievedDocuments,
+      recommendations: ragResult.recommendations ?? [],
     };
   };
 }

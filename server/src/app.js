@@ -1,5 +1,9 @@
 import cors from 'cors';
 import express from 'express';
+import { AuthController } from './domain/auth/controller/auth.controller.js';
+import { createAuthMiddleware } from './domain/auth/middleware/auth.middleware.js';
+import { createAuthRouter } from './domain/auth/routes/auth.routes.js';
+import { AuthService } from './domain/auth/service/auth.service.js';
 import { ChatController } from './domain/chat/controller/chat.controller.js';
 import { createChatRouter } from './domain/chat/routes/chat.routes.js';
 import { ChatService } from './domain/chat/service/chat.service.js';
@@ -18,11 +22,20 @@ export async function createApp({ chatService } = {}) {
         productChunkRepository: repositories.productChunkRepository,
       }),
     });
+  const authController = new AuthController({
+    authService: new AuthService({
+      userRepository: repositories.userRepository,
+    }),
+  });
   const chatController = new ChatController({
     chatService: resolvedChatService,
   });
 
-  app.use(cors());
+  app.use(
+    cors({
+      origin: parseAllowedOrigins(process.env.CLIENT_ORIGIN),
+    }),
+  );
   app.use(express.json());
 
   app.get('/health', (_request, response) => {
@@ -32,7 +45,14 @@ export async function createApp({ chatService } = {}) {
     });
   });
 
-  app.use('/api', createChatRouter({ chatController }));
+  app.use('/api', createAuthRouter({ authController }));
+  app.use(
+    '/api',
+    createAuthMiddleware({
+      userRepository: repositories.userRepository,
+    }),
+    createChatRouter({ chatController }),
+  );
 
   app.use((error, _request, response, _next) => {
     console.error(error);
@@ -42,4 +62,13 @@ export async function createApp({ chatService } = {}) {
   });
 
   return app;
+}
+
+function parseAllowedOrigins(value) {
+  if (!value) return true;
+
+  return value
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 }

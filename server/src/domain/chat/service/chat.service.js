@@ -1,4 +1,9 @@
 import { OnboardingService } from '../../onboarding/service/onboarding.service.js';
+import {
+  ChatMessageResponse,
+  ChatSessionResponse,
+  ChatTurnResponse,
+} from '../dto/chat.response.js';
 import { ChatTurnWorkflow } from './chat-turn.workflow.js';
 
 export class ChatService {
@@ -68,18 +73,21 @@ export class ChatService {
         content: turnResult.assistantMessage,
         metadata: {
           next_action: turnResult.nextAction,
+          recommendations: turnResult.recommendations ?? [],
         },
       });
 
       return {
         statusCode: 200,
-        body: {
-          user_id: user.externalId,
-          session_id: session.id,
-          is_onboarding_completed: updatedPreference.isOnboardingCompleted,
-          next_action: turnResult.nextAction,
-          message: turnResult.assistantMessage,
-        },
+        body: ChatTurnResponse.from({
+          user,
+          session,
+          preference: updatedPreference,
+          assistantMessage: turnResult.assistantMessage,
+          nextAction: turnResult.nextAction,
+          retrievedDocuments: turnResult.retrievedDocuments,
+          recommendations: turnResult.recommendations ?? [],
+        }),
       };
     }
 
@@ -93,20 +101,62 @@ export class ChatService {
         retrieved_document_ids: turnResult.retrievedDocuments.map(
           (document) => document.id,
         ),
+        recommendations: turnResult.recommendations ?? [],
       },
     });
 
     return {
       statusCode: 200,
+      body: ChatTurnResponse.from({
+        user,
+        session,
+        preference,
+        assistantMessage: turnResult.assistantMessage,
+        nextAction: turnResult.nextAction,
+        retrievedDocuments: turnResult.retrievedDocuments,
+        recommendations: turnResult.recommendations ?? [],
+      }),
+    };
+  }
+
+  async listSessions({ externalUserId = 'demo-user' }) {
+    const user = await this.findOrCreateUser(externalUserId);
+    const sessions = await this.chatSessionRepository.findByUserId({
+      userId: user.id,
+    });
+
+    return {
+      statusCode: 200,
       body: {
-        user_id: user.externalId,
-        session_id: session.id,
-        is_onboarding_completed: preference.isOnboardingCompleted,
-        next_action: turnResult.nextAction,
-        message: turnResult.assistantMessage,
-        retrieved_document_ids: turnResult.retrievedDocuments.map(
-          (document) => document.id,
-        ),
+        sessions: sessions.map(ChatSessionResponse.from),
+      },
+    };
+  }
+
+  async listMessages({ externalUserId = 'demo-user', sessionId }) {
+    const user = await this.findOrCreateUser(externalUserId);
+    const session = await this.chatSessionRepository.findByIdForUser({
+      id: sessionId,
+      userId: user.id,
+    });
+
+    if (!session) {
+      return {
+        statusCode: 404,
+        body: { error: 'chat session not found' },
+      };
+    }
+
+    const messages = await this.chatMessageRepository.findBySessionForUser({
+      sessionId,
+      userId: user.id,
+    });
+
+    return {
+      statusCode: 200,
+      body: {
+        session: ChatSessionResponse.from(session),
+        messages: messages.map(ChatMessageResponse.from),
       },
     };
   }

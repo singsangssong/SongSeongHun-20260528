@@ -1,10 +1,14 @@
 CREATE TABLE IF NOT EXISTS users (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   external_id VARCHAR(191) NOT NULL,
+  email VARCHAR(191) NULL,
+  nickname VARCHAR(100) NULL,
+  password_hash VARCHAR(255) NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  UNIQUE KEY uq_users_external_id (external_id)
+  UNIQUE KEY uq_users_external_id (external_id),
+  UNIQUE KEY uq_users_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS user_preferences (

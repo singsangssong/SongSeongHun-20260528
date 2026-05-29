@@ -29,6 +29,20 @@ export class ChatSessionRepository {
     return toChatSession(rows[0]);
   }
 
+  async findByUserId({ userId, limit = 30 }) {
+    const safeLimit = Math.max(1, Math.min(Number.parseInt(limit, 10) || 30, 100));
+    const [rows] = await this.db.execute(
+      `SELECT id, user_id, title, created_at, updated_at
+       FROM chat_sessions
+       WHERE user_id = ?
+       ORDER BY updated_at DESC, id DESC
+       LIMIT ${safeLimit}`,
+      [userId],
+    );
+
+    return rows.map(toChatSession);
+  }
+
   async create({ userId, title = null }) {
     const [result] = await this.db.execute(
       `INSERT INTO chat_sessions (user_id, title)

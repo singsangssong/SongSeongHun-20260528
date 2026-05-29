@@ -26,7 +26,30 @@ export async function runCoreMigration(db) {
   );
 
   await db.query(sql);
+  await ensureUserAuthColumns(db);
   await ensureUserPreferenceColumns(db);
+}
+
+async function ensureUserAuthColumns(db) {
+  const columns = [
+    ['email', 'VARCHAR(191) NULL'],
+    ['nickname', 'VARCHAR(100) NULL'],
+    ['password_hash', 'VARCHAR(255) NULL'],
+  ];
+
+  for (const [name, definition] of columns) {
+    try {
+      await db.query(`ALTER TABLE users ADD COLUMN ${name} ${definition}`);
+    } catch (error) {
+      if (error.code !== 'ER_DUP_FIELDNAME') throw error;
+    }
+  }
+
+  try {
+    await db.query('ALTER TABLE users ADD UNIQUE KEY uq_users_email (email)');
+  } catch (error) {
+    if (error.code !== 'ER_DUP_KEYNAME') throw error;
+  }
 }
 
 async function ensureUserPreferenceColumns(db) {

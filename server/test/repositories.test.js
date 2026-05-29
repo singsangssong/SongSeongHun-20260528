@@ -32,6 +32,9 @@ describe('repositories', () => {
         {
           id: 1,
           external_id: 'demo-user',
+          email: null,
+          nickname: null,
+          password_hash: null,
           created_at: null,
           updated_at: null,
         },
@@ -47,6 +50,31 @@ describe('repositories', () => {
     assert.deepEqual(db.calls[0].params, ['demo-user']);
   });
 
+  it('finds an authenticated user by email', async () => {
+    db.results.push([
+      [
+        {
+          id: 1,
+          external_id: 'user@example.com',
+          email: 'user@example.com',
+          nickname: '테스터',
+          password_hash: 'hash',
+          created_at: null,
+          updated_at: null,
+        },
+      ],
+      [],
+    ]);
+
+    const repository = new UserRepository(db);
+    const user = await repository.findByEmail('user@example.com');
+
+    assert.equal(user.email, 'user@example.com');
+    assert.equal(user.nickname, '테스터');
+    assert.equal(user.passwordHash, 'hash');
+    assert.match(db.calls[0].sql, /WHERE email = \?/);
+  });
+
   it('creates a user when external id is missing', async () => {
     db.results.push([{ insertId: 7 }, []]);
 
@@ -56,6 +84,26 @@ describe('repositories', () => {
     assert.equal(user.id, 7);
     assert.equal(user.externalId, 'new-user');
     assert.match(db.calls[0].sql, /INSERT INTO users/);
+  });
+
+  it('creates an authenticated user', async () => {
+    db.results.push([{ insertId: 8 }, []]);
+
+    const repository = new UserRepository(db);
+    const user = await repository.createWithAuth({
+      email: 'user@example.com',
+      nickname: '테스터',
+      passwordHash: 'hash',
+    });
+
+    assert.equal(user.id, 8);
+    assert.equal(user.externalId, 'user@example.com');
+    assert.deepEqual(db.calls[0].params, [
+      'user@example.com',
+      'user@example.com',
+      '테스터',
+      'hash',
+    ]);
   });
 
   it('finds a product by name and brand', async () => {
@@ -203,6 +251,28 @@ describe('repositories', () => {
     assert.deepEqual(db.calls[0].params, [11, 1]);
   });
 
+  it('lists chat sessions for a user', async () => {
+    db.results.push([
+      [
+        {
+          id: 11,
+          user_id: 1,
+          title: '피로 상담',
+          created_at: null,
+          updated_at: null,
+        },
+      ],
+      [],
+    ]);
+
+    const repository = new ChatSessionRepository(db);
+    const sessions = await repository.findByUserId({ userId: 1 });
+
+    assert.equal(sessions[0].title, '피로 상담');
+    assert.match(db.calls[0].sql, /ORDER BY updated_at DESC/);
+    assert.deepEqual(db.calls[0].params, [1]);
+  });
+
   it('creates chat sessions and messages', async () => {
     db.results.push([{ insertId: 11 }, []], [{ insertId: 12 }, []]);
 
@@ -221,6 +291,34 @@ describe('repositories', () => {
     assert.equal(message.id, 12);
     assert.match(db.calls[0].sql, /INSERT INTO chat_sessions/);
     assert.match(db.calls[1].sql, /INSERT INTO chat_messages/);
+  });
+
+  it('lists chat messages for a session and user', async () => {
+    db.results.push([
+      [
+        {
+          id: 12,
+          session_id: 11,
+          user_id: 1,
+          role: 'assistant',
+          content: '추천 답변',
+          metadata: '{"next_action":"RESPOND"}',
+          created_at: null,
+        },
+      ],
+      [],
+    ]);
+
+    const repository = new ChatMessageRepository(db);
+    const messages = await repository.findBySessionForUser({
+      sessionId: 11,
+      userId: 1,
+    });
+
+    assert.equal(messages[0].content, '추천 답변');
+    assert.equal(messages[0].metadata.next_action, 'RESPOND');
+    assert.match(db.calls[0].sql, /FROM chat_messages/);
+    assert.deepEqual(db.calls[0].params, [11, 1]);
   });
 
   it('creates products and chunks', async () => {
@@ -290,5 +388,50 @@ describe('repositories', () => {
     assert.match(db.calls[0].sql, /FROM product_chunks/);
     assert.match(db.calls[0].sql, /LIMIT 200/);
     assert.deepEqual(db.calls[0].params, []);
+  });
+
+  it('loads all RAG documents for selected products', async () => {
+    db.results.push([
+      [
+        {
+          id: 31,
+          product_id: 21,
+          product_name: '여성 멀티비타민',
+          brand: 'Demo Brand',
+          category: 'health_supplement',
+          source_url: 'https://example.com/multi',
+          source_name: 'levit_pipeline',
+          chunk_type: 'summary',
+          content: '상품명: 여성 멀티비타민',
+          metadata: '{}',
+          embedding_id: null,
+          created_at: null,
+        },
+        {
+          id: 32,
+          product_id: 21,
+          product_name: '여성 멀티비타민',
+          brand: 'Demo Brand',
+          category: 'health_supplement',
+          source_url: 'https://example.com/multi',
+          source_name: 'levit_pipeline',
+          chunk_type: 'cautions',
+          content: '주의사항: 임신 중이면 전문가 상담',
+          metadata: '{}',
+          embedding_id: null,
+          created_at: null,
+        },
+      ],
+      [],
+    ]);
+
+    const repository = new ProductChunkRepository(db);
+    const documents = await repository.findDocumentsForRagByProductIds([21]);
+
+    assert.equal(documents.length, 2);
+    assert.equal(documents[0].metadata.productId, 21);
+    assert.equal(documents[1].metadata.chunkType, 'cautions');
+    assert.match(db.calls[0].sql, /pc\.product_id IN \(\?\)/);
+    assert.deepEqual(db.calls[0].params, [21]);
   });
 });

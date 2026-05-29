@@ -48,7 +48,7 @@ describe('createDefaultRagWorkflow', () => {
     assert.match(result.answer, /유산균 ingredient/);
   });
 
-  it('falls back to seed documents when product chunks are empty', async () => {
+  it('does not fall back to seed documents when product chunks are empty', async () => {
     const workflow = await createDefaultRagWorkflow({
       embeddingProvider: new FakeEmbeddingProvider(),
       chatModel: new FakeChatModel(),
@@ -67,6 +67,7 @@ describe('createDefaultRagWorkflow', () => {
       },
     });
 
-    assert.equal(result.retrievedDocuments[0].id, 'vitamin-b-ingredient');
+    assert.deepEqual(result.retrievedDocuments, []);
+    assert.match(result.answer, /추천 가능한 상품 데이터가 없습니다/);
   });
 });

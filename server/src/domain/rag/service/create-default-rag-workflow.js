@@ -1,4 +1,3 @@
-import { seedProductDocuments } from '../data/seed-product-documents.js';
 import { ChatRagWorkflow } from './chat-rag.workflow.js';
 import { OpenAIChatModel } from '../../../global/llm/openai-chat.model.js';
 import { TemplateChatModel } from '../../../global/llm/template-chat.model.js';
@@ -16,6 +15,7 @@ export async function createDefaultRagWorkflow({
       embeddingProvider,
       chatModel,
       documents: await loadRagDocuments({ productChunkRepository }),
+      productChunkRepository,
     });
   }
 
@@ -27,6 +27,7 @@ export async function createDefaultRagWorkflow({
         embeddingProvider: new OpenAIEmbeddingProvider(),
         chatModel: new OpenAIChatModel(),
         documents: await loadRagDocuments({ productChunkRepository }),
+        productChunkRepository,
       });
     } catch (error) {
       console.warn(
@@ -39,26 +40,29 @@ export async function createDefaultRagWorkflow({
     embeddingProvider: new LocalKeywordEmbeddingProvider(),
     chatModel: new TemplateChatModel(),
     documents: await loadRagDocuments({ productChunkRepository }),
+    productChunkRepository,
   });
 }
 
 async function loadRagDocuments({ productChunkRepository }) {
   if (!productChunkRepository) {
-    return seedProductDocuments;
+    return [];
   }
 
   try {
-    const documents = await productChunkRepository.findDocumentsForRag();
-    return documents.length > 0 ? documents : seedProductDocuments;
+    return productChunkRepository.findDocumentsForRag();
   } catch (error) {
-    console.warn(
-      `Product chunk loading failed. Falling back to seed RAG documents: ${error.message}`,
-    );
-    return seedProductDocuments;
+    console.warn(`Product chunk loading failed: ${error.message}`);
+    return [];
   }
 }
 
-async function createWorkflow({ embeddingProvider, chatModel, documents }) {
+async function createWorkflow({
+  embeddingProvider,
+  chatModel,
+  documents,
+  productChunkRepository,
+}) {
   const vectorStore = new InMemoryVectorStore({ embeddingProvider });
 
   await vectorStore.addDocuments(documents);
@@ -66,5 +70,12 @@ async function createWorkflow({ embeddingProvider, chatModel, documents }) {
   return new ChatRagWorkflow({
     vectorStore,
     chatModel,
+    productContextLoader: productChunkRepository
+      ? {
+          loadByProductIds(productIds) {
+            return productChunkRepository.findDocumentsForRagByProductIds(productIds);
+          },
+        }
+      : null,
   });
 }

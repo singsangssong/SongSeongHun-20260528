@@ -183,6 +183,13 @@ describe('ChatService', () => {
             nextAction: 'RESPOND',
             answer: `RAG answer: ${message} / ${userPreferences.healthConcerns[0]}`,
             retrievedDocuments: [{ id: 'vitamin-b-ingredient' }],
+            recommendations: [
+              {
+                name: '비타민 B 컴플렉스',
+                brand: 'Sample Health',
+                source_url: 'https://example.test/vitamin-b',
+              },
+            ],
           };
         },
       },
@@ -196,6 +203,13 @@ describe('ChatService', () => {
     assert.equal(result.body.next_action, 'RESPOND');
     assert.match(result.body.message, /RAG answer/);
     assert.deepEqual(result.body.retrieved_document_ids, ['vitamin-b-ingredient']);
+    assert.deepEqual(result.body.recommendations, [
+      {
+        name: '비타민 B 컴플렉스',
+        brand: 'Sample Health',
+        source_url: 'https://example.test/vitamin-b',
+      },
+    ]);
   });
 
   it('returns a follow-up question when RAG workflow detects a context gap', async () => {
@@ -223,6 +237,7 @@ describe('ChatService', () => {
             nextAction: 'ASK_QUESTION',
             answer: '혈압약 관련 정보는 먼저 확인이 필요해요.',
             retrievedDocuments: [],
+            recommendations: [],
           };
         },
       },
@@ -237,5 +252,6 @@ describe('ChatService', () => {
     assert.equal(result.body.is_onboarding_completed, true);
     assert.match(result.body.message, /혈압약/);
     assert.deepEqual(result.body.retrieved_document_ids, []);
+    assert.deepEqual(result.body.recommendations, []);
   });
 });

@@ -137,9 +137,12 @@ export class OnboardingService {
     const goals = mergeUnique(preference.goals, findKeywordMatches(message, goalKeywords));
 
     if (!ageGroup || healthConcerns.length === 0) {
+      const hasSavedSafetyContext = patch.safetyNotes.length > (preference.safetyNotes ?? []).length;
       return this.reask({
         patch: { ...patch, ageGroup, gender, healthConcerns, goals, onboardingStep: 0 },
-        message: onboardingQuestions.healthConcern,
+        message: hasSavedSafetyContext
+          ? `말씀해주신 질환/복용 관련 정보는 저장했어요. ${onboardingQuestions.healthConcern}`
+          : onboardingQuestions.healthConcern,
       });
     }
 
