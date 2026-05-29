@@ -60,4 +60,70 @@ describe('RAG workflow', () => {
     assert.equal(result.retrievedDocuments[0].id, 'vitamin-b-ingredient');
     assert.match(result.answer, /비타민 B 컴플렉스 성분/);
   });
+
+  it('asks a follow-up question when the current question has a new medication context', async () => {
+    let searchCount = 0;
+    const vectorStore = {
+      async similaritySearch() {
+        searchCount += 1;
+        return [];
+      },
+    };
+    const chatModel = new FakeChatModel();
+    const workflow = new ChatRagWorkflow({
+      vectorStore,
+      chatModel,
+    });
+
+    const result = await workflow.invoke({
+      userId: 'demo-user',
+      message: '혈압약이랑 같이 먹어도 되는 피로 영양제 추천해줘',
+      userPreferences: {
+        healthConcerns: ['피로'],
+        medications: [],
+        safetyNotes: [],
+      },
+    });
+
+    assert.equal(searchCount, 0);
+    assert.equal(result.nextAction, 'ASK_QUESTION');
+    assert.equal(result.contextGap.hasGap, true);
+    assert.match(result.answer, /혈압약/);
+  });
+
+  it('continues to retrieval when the medication context is already known', async () => {
+    let searchCount = 0;
+    const vectorStore = {
+      async similaritySearch() {
+        searchCount += 1;
+        return [
+          {
+            id: 'vitamin-b-ingredient',
+            title: '비타민 B 컴플렉스 성분',
+            content: '피로와 에너지 대사에 관련된 비타민 B군 정보',
+            metadata: { productName: '비타민 B 컴플렉스' },
+          },
+        ];
+      },
+    };
+    const workflow = new ChatRagWorkflow({
+      vectorStore,
+      chatModel: new FakeChatModel(),
+    });
+
+    const result = await workflow.invoke({
+      userId: 'demo-user',
+      message: '혈압약이랑 같이 먹어도 되는 피로 영양제 추천해줘',
+      userPreferences: {
+        healthConcerns: ['피로'],
+        medications: ['혈압약'],
+        safetyNotes: ['혈압약'],
+      },
+    });
+
+    assert.equal(searchCount, 1);
+    assert.equal(result.nextAction, 'RESPOND');
+    assert.equal(result.contextGap.hasGap, false);
+    assert.match(result.answer, /비타민 B 컴플렉스 성분/);
+  });
 });

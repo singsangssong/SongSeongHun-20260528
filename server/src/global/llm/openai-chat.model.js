@@ -1,11 +1,13 @@
 import OpenAI from 'openai';
+import { createRecommendationFormatInstruction } from './recommendation-answer-format.js';
 
 export class OpenAIChatModel {
   constructor({
     apiKey = process.env.OPENAI_API_KEY,
+    client = null,
     model = process.env.OPENAI_CHAT_MODEL || 'gpt-4o-mini',
   } = {}) {
-    this.client = new OpenAI({ apiKey });
+    this.client = client ?? new OpenAI({ apiKey });
     this.model = model;
   }
 
@@ -19,8 +21,11 @@ export class OpenAIChatModel {
       messages: [
         {
           role: 'system',
-          content:
-            '너는 건강기능식품 구매 판단을 돕는 AI 에이전트다. 진단, 치료, 처방처럼 단정하지 말고 상품 정보 요약, 주의사항, 추천 이유를 짧고 명확하게 답한다.',
+          content: [
+            '너는 건강기능식품 구매 판단을 돕는 AI 에이전트다.',
+            '진단, 치료, 처방처럼 단정하지 말고 상품 정보 요약, 주의사항, 추천 이유를 짧고 명확하게 답한다.',
+            createRecommendationFormatInstruction(),
+          ].join('\n\n'),
         },
         {
           role: 'user',
@@ -36,4 +41,3 @@ export class OpenAIChatModel {
     return response.choices[0]?.message?.content ?? '';
   }
 }
-

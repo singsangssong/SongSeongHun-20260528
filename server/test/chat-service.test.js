@@ -197,4 +197,45 @@ describe('ChatService', () => {
     assert.match(result.body.message, /RAG answer/);
     assert.deepEqual(result.body.retrieved_document_ids, ['vitamin-b-ingredient']);
   });
+
+  it('returns a follow-up question when RAG workflow detects a context gap', async () => {
+    const repositories = createRepositories();
+    repositories.userRepository.findByExternalId = async (externalId) => {
+      repositories.calls.push(['findUser', externalId]);
+      return new User({ id: 1, externalId });
+    };
+    repositories.userPreferenceRepository.findByUserId = async (userId) => {
+      repositories.calls.push(['findPreference', userId]);
+      return new UserPreference({
+        id: 2,
+        userId,
+        healthConcerns: ['피로'],
+        isOnboardingCompleted: true,
+        onboardingStep: 4,
+      });
+    };
+
+    const service = new ChatService({
+      ...repositories,
+      ragWorkflow: {
+        async invoke() {
+          return {
+            nextAction: 'ASK_QUESTION',
+            answer: '혈압약 관련 정보는 먼저 확인이 필요해요.',
+            retrievedDocuments: [],
+          };
+        },
+      },
+    });
+
+    const result = await service.sendMessage({
+      externalUserId: 'demo-user',
+      message: '혈압약이랑 같이 먹어도 되는 피로 영양제 추천해줘',
+    });
+
+    assert.equal(result.body.next_action, 'ASK_QUESTION');
+    assert.equal(result.body.is_onboarding_completed, true);
+    assert.match(result.body.message, /혈압약/);
+    assert.deepEqual(result.body.retrieved_document_ids, []);
+  });
 });
