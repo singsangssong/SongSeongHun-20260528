@@ -13,6 +13,7 @@ build/
 coverage/
 .turbo/
 .vite/
+pipeline/out/
 
 # Logs
 *.log
@@ -29,6 +30,8 @@ pnpm-debug.log*
 # Runtime data
 data/
 tmp/
+__pycache__/
+*.pyc
 
 # Local AI agent harness
 AGENTS.md

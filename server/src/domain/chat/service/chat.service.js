@@ -1,4 +1,5 @@
 import { OnboardingService } from '../../onboarding/service/onboarding.service.js';
+import { ChatTurnWorkflow } from './chat-turn.workflow.js';
 
 export class ChatService {
   constructor({
@@ -8,13 +9,18 @@ export class ChatService {
     chatMessageRepository,
     onboardingService = new OnboardingService(),
     ragWorkflow = null,
+    chatTurnWorkflow = null,
   }) {
     this.userRepository = userRepository;
     this.userPreferenceRepository = userPreferenceRepository;
     this.chatSessionRepository = chatSessionRepository;
     this.chatMessageRepository = chatMessageRepository;
-    this.onboardingService = onboardingService;
-    this.ragWorkflow = ragWorkflow;
+    this.chatTurnWorkflow =
+      chatTurnWorkflow ??
+      new ChatTurnWorkflow({
+        onboardingService,
+        ragWorkflow,
+      });
   }
 
   async sendMessage({ externalUserId = 'demo-user', message, sessionId = null }) {
@@ -43,23 +49,25 @@ export class ChatService {
       content: trimmedMessage,
     });
 
-    if (preference.isOnboardingCompleted && this.ragWorkflow) {
-      const ragResult = await this.ragWorkflow.invoke({
-        userId: user.externalId,
-        message: trimmedMessage,
-        userPreferences: preference,
+    const turnResult = await this.chatTurnWorkflow.invoke({
+      user,
+      preference,
+      message: trimmedMessage,
+    });
+
+    if (turnResult.preferencePatch) {
+      const updatedPreference = await this.userPreferenceRepository.updateOnboarding({
+        userId: user.id,
+        patch: turnResult.preferencePatch,
       });
 
       await this.chatMessageRepository.create({
         sessionId: session.id,
         userId: user.id,
         role: 'assistant',
-        content: ragResult.answer,
+        content: turnResult.assistantMessage,
         metadata: {
-          next_action: ragResult.nextAction,
-          retrieved_document_ids: ragResult.retrievedDocuments.map(
-            (document) => document.id,
-          ),
+          next_action: turnResult.nextAction,
         },
       });
 
@@ -68,32 +76,23 @@ export class ChatService {
         body: {
           user_id: user.externalId,
           session_id: session.id,
-          is_onboarding_completed: true,
-          next_action: ragResult.nextAction,
-          message: ragResult.answer,
-          retrieved_document_ids: ragResult.retrievedDocuments.map(
-            (document) => document.id,
-          ),
+          is_onboarding_completed: updatedPreference.isOnboardingCompleted,
+          next_action: turnResult.nextAction,
+          message: turnResult.assistantMessage,
         },
       };
     }
-
-    const onboardingResult = this.onboardingService.handleAnswer({
-      preference,
-      message: trimmedMessage,
-    });
-    const updatedPreference = await this.userPreferenceRepository.updateOnboarding({
-      userId: user.id,
-      patch: onboardingResult.preferencePatch,
-    });
 
     await this.chatMessageRepository.create({
       sessionId: session.id,
       userId: user.id,
       role: 'assistant',
-      content: onboardingResult.assistantMessage,
+      content: turnResult.assistantMessage,
       metadata: {
-        next_action: onboardingResult.nextAction,
+        next_action: turnResult.nextAction,
+        retrieved_document_ids: turnResult.retrievedDocuments.map(
+          (document) => document.id,
+        ),
       },
     });
 
@@ -102,9 +101,12 @@ export class ChatService {
       body: {
         user_id: user.externalId,
         session_id: session.id,
-        is_onboarding_completed: updatedPreference.isOnboardingCompleted,
-        next_action: onboardingResult.nextAction,
-        message: onboardingResult.assistantMessage,
+        is_onboarding_completed: preference.isOnboardingCompleted,
+        next_action: turnResult.nextAction,
+        message: turnResult.assistantMessage,
+        retrieved_document_ids: turnResult.retrievedDocuments.map(
+          (document) => document.id,
+        ),
       },
     };
   }
