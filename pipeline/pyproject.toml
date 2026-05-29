@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "levit-pipeline"
+version = "0.1.0"
+description = "Offline-first product ingestion pipeline scaffold for Levit assignment"
+requires-python = ">=3.11"
+dependencies = ["PyMySQL>=1.1,<2"]
+
+[project.scripts]
+levit-pipeline = "levit_pipeline.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
