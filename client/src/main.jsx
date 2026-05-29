@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { AuthPanel } from './components/AuthPanel.jsx';
+import { ChatPanel } from './components/ChatPanel.jsx';
+import { Sidebar } from './components/Sidebar.jsx';
 import './styles.css';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-const demoUserId = 'demo-user';
+const authStorageKey = 'levit-auth';
 
 const quickPrompts = [
   '40대 여성이고 요즘 피로랑 수면이 고민이에요',
@@ -13,37 +16,98 @@ const quickPrompts = [
   '피로 회복에 좋은 영양제를 추천해줘',
 ];
 
-function formatAction(action) {
-  const labels = {
-    ASK_QUESTION: '온보딩 질문',
-    SEARCH_RAG: '추천 준비',
-    RESPOND: '답변 완료',
-  };
-
-  return labels[action] ?? '대기 중';
-}
+const initialMessage = {
+  role: 'assistant',
+  content: '건강기능식품 선택을 도와드릴게요. 먼저 연령대와 건강 고민을 알려주세요.',
+  action: 'ASK_QUESTION',
+};
 
 function App() {
-  const [messages, setMessages] = useState([
-      {
-        role: 'assistant',
-        content: '건강기능식품 선택을 도와드릴게요. 먼저 연령대와 건강 고민을 알려주세요.',
-        action: 'ASK_QUESTION',
-      },
-  ]);
+  const [auth, setAuth] = useState(() => readStoredAuth());
+  const [authMode, setAuthMode] = useState('login');
+  const [authForm, setAuthForm] = useState({
+    email: '',
+    nickname: '',
+    password: '',
+  });
+  const [messages, setMessages] = useState([initialMessage]);
   const [input, setInput] = useState('');
   const [sessionId, setSessionId] = useState(null);
+  const [sessions, setSessions] = useState([]);
   const [nextAction, setNextAction] = useState('ASK_QUESTION');
   const [isOnboardingCompleted, setIsOnboardingCompleted] = useState(false);
   const [retrievedDocumentIds, setRetrievedDocumentIds] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const userId = auth?.user?.email ?? '';
+  const authHeaders = auth?.token
+    ? { Authorization: `Bearer ${auth.token}` }
+    : {};
+
+  useEffect(() => {
+    if (auth?.token) {
+      loadSessions(auth.token);
+    }
+  }, [auth?.token]);
+
+  const updateAuthForm = (field, value) => {
+    setAuthForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleAuthSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/auth/${authMode}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(authForm),
+      });
+      const data = await readJsonResponse(response);
+
+      if (!response.ok) {
+        throw new Error(data.error ?? 'auth failed');
+      }
+
+      window.localStorage.setItem(authStorageKey, JSON.stringify(data));
+      setAuth(data);
+      resetConversationState();
+      await loadSessions(data.token);
+    } catch (authError) {
+      setError(formatAuthError(authError));
+    }
+  };
+
+  const loadSessions = async (token = auth?.token) => {
+    if (!token) return;
+
+    const response = await fetch(`${apiBaseUrl}/api/chat/sessions`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return;
+
+    const data = await response.json();
+    setSessions(data.sessions ?? []);
+  };
+
+  const loadMessages = async (selectedSessionId) => {
+    const response = await fetch(
+      `${apiBaseUrl}/api/chat/sessions/${selectedSessionId}/messages`,
+      { headers: authHeaders },
+    );
+    if (!response.ok) return;
+
+    const data = await response.json();
+    setSessionId(data.session.id);
+    setMessages(data.messages.map(toClientMessage));
+  };
 
   const sendMessage = async (content) => {
     if (!content || isLoading) return;
 
-    const nextMessages = [...messages, { role: 'user', content }];
-    setMessages(nextMessages);
+    setMessages((current) => [...current, { role: 'user', content }]);
     setInput('');
     setError('');
     setIsLoading(true);
@@ -51,23 +115,23 @@ function App() {
     try {
       const response = await fetch(`${apiBaseUrl}/api/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({
-          user_id: demoUserId,
           session_id: sessionId,
           message: content,
         }),
       });
+      const data = await readJsonResponse(response);
 
       if (!response.ok) {
-        throw new Error('API request failed');
+        throw new Error(data.error ?? 'API request failed');
       }
 
-      const data = await response.json();
       setSessionId(data.session_id ?? sessionId);
       setNextAction(data.next_action ?? 'RESPOND');
       setIsOnboardingCompleted(Boolean(data.is_onboarding_completed));
       setRetrievedDocumentIds(data.retrieved_document_ids ?? []);
+      setRecommendations(data.recommendations ?? []);
       setMessages((current) => [
         ...current,
         {
@@ -75,10 +139,12 @@ function App() {
           content: data.message,
           action: data.next_action,
           retrievedDocumentIds: data.retrieved_document_ids ?? [],
+          recommendations: data.recommendations ?? [],
         },
       ]);
-    } catch {
-      setError('응답을 가져오지 못했어요. 서버가 실행 중인지 확인해주세요.');
+      await loadSessions();
+    } catch (chatError) {
+      setError(formatChatError(chatError));
     } finally {
       setIsLoading(false);
     }
@@ -90,114 +156,120 @@ function App() {
   };
 
   const resetConversation = () => {
-    setMessages([
-      {
-        role: 'assistant',
-        content: '새 대화를 시작할게요. 먼저 연령대와 건강 고민을 알려주세요.',
-        action: 'ASK_QUESTION',
-      },
-    ]);
+    resetConversationState('새 대화를 시작할게요. 먼저 연령대와 건강 고민을 알려주세요.');
+  };
+
+  const logout = () => {
+    window.localStorage.removeItem(authStorageKey);
+    setAuth(null);
+    setSessions([]);
+    resetConversationState();
+  };
+
+  const resetConversationState = (message = initialMessage.content) => {
+    setMessages([{ ...initialMessage, content: message }]);
     setInput('');
     setSessionId(null);
     setNextAction('ASK_QUESTION');
     setIsOnboardingCompleted(false);
     setRetrievedDocumentIds([]);
+    setRecommendations([]);
     setError('');
   };
 
+  if (!auth) {
+    return (
+      <AuthPanel
+        authMode={authMode}
+        authForm={authForm}
+        error={error}
+        onAuthModeChange={setAuthMode}
+        onAuthFormChange={updateAuthForm}
+        onSubmit={handleAuthSubmit}
+      />
+    );
+  }
+
   return (
     <main className="app">
-      <section className="chat">
-        <header className="chatHeader">
-          <div>
-            <p>Levit Assignment MVP</p>
-            <h1>건강기능식품 추천 에이전트</h1>
-          </div>
-          <button className="ghostButton" type="button" onClick={resetConversation}>
-            새 대화
-          </button>
-        </header>
-
-        <div className="statusBar" aria-label="chat status">
-          <div>
-            <span>사용자</span>
-            <strong>{demoUserId}</strong>
-          </div>
-          <div>
-            <span>세션</span>
-            <strong>{sessionId ?? '미생성'}</strong>
-          </div>
-          <div>
-            <span>온보딩</span>
-            <strong>{isOnboardingCompleted ? '완료' : '진행 중'}</strong>
-          </div>
-          <div>
-            <span>다음 액션</span>
-            <strong>{formatAction(nextAction)}</strong>
-          </div>
-        </div>
-
-        <div className="messages">
-          {messages.map((message, index) => (
-            <div className={`message ${message.role}`} key={`${message.role}-${index}`}>
-              <p>{message.content}</p>
-              {message.action && (
-                <span className="messageMeta">{formatAction(message.action)}</span>
-              )}
-              {message.retrievedDocumentIds?.length > 0 && (
-                <span className="messageMeta">
-                  참조: {message.retrievedDocumentIds.join(', ')}
-                </span>
-              )}
-            </div>
-          ))}
-          {isLoading && (
-            <div className="message assistant">
-              <p>답변을 정리하고 있어요...</p>
-              <span className="messageMeta">요청 처리 중</span>
-            </div>
-          )}
-        </div>
-
-        <div className="quickPrompts" aria-label="example prompts">
-          {quickPrompts.map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              onClick={() => sendMessage(prompt)}
-              disabled={isLoading}
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
-
-        {retrievedDocumentIds.length > 0 && (
-          <div className="retrievalPanel">
-            <span>최근 RAG 참조 문서</span>
-            <strong>{retrievedDocumentIds.join(', ')}</strong>
-          </div>
-        )}
-
-        {error && <p className="error">{error}</p>}
-
-        <form className="composer" onSubmit={handleSubmit}>
-          <input
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder={
-              isOnboardingCompleted
-                ? '예: 피로 회복에 좋은 영양제를 추천해줘'
-                : '예: 40대 여성이고 요즘 피로랑 수면이 고민이에요'
-            }
-          />
-          <button type="submit" disabled={isLoading || !input.trim()}>
-            보내기
-          </button>
-        </form>
+      <section className="workspace">
+        <Sidebar
+          user={auth.user}
+          sessions={sessions}
+          sessionId={sessionId}
+          onNewChat={resetConversation}
+          onLogout={logout}
+          onSelectSession={loadMessages}
+        />
+        <ChatPanel
+          userId={userId}
+          sessionId={sessionId}
+          nextAction={nextAction}
+          isOnboardingCompleted={isOnboardingCompleted}
+          messages={messages}
+          input={input}
+          retrievedDocumentIds={retrievedDocumentIds}
+          recommendations={recommendations}
+          isLoading={isLoading}
+          error={error}
+          quickPrompts={quickPrompts}
+          onNewChat={resetConversation}
+          onInputChange={setInput}
+          onSubmit={handleSubmit}
+          onQuickPrompt={sendMessage}
+        />
       </section>
     </main>
   );
 }
 
 createRoot(document.getElementById('root')).render(<App />);
+
+function readStoredAuth() {
+  const stored = window.localStorage.getItem(authStorageKey);
+  return stored ? JSON.parse(stored) : null;
+}
+
+async function readJsonResponse(response) {
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: text };
+  }
+}
+
+function toClientMessage(message) {
+  return {
+    role: message.role,
+    content: message.content,
+    action: message.metadata?.next_action,
+    retrievedDocumentIds: message.metadata?.retrieved_document_ids ?? [],
+    recommendations: message.metadata?.recommendations ?? [],
+  };
+}
+
+function formatAuthError(error) {
+  const message = error instanceof Error ? error.message : '';
+  const labels = {
+    'invalid email or password': '이메일 또는 비밀번호가 맞지 않아요.',
+    'email already exists': '이미 가입된 이메일이에요. 로그인으로 진행해주세요.',
+    'email, nickname, and password(8+) are required':
+      '이메일, 닉네임, 8자 이상의 비밀번호가 필요해요.',
+    'internal server error':
+      '서버 오류가 발생했어요. DB migration이 적용됐는지 확인해주세요.',
+  };
+
+  return labels[message] ?? '인증 요청에 실패했어요. 서버 실행 상태와 입력값을 확인해주세요.';
+}
+
+function formatChatError(error) {
+  const message = error instanceof Error ? error.message : '';
+  if (message === 'authorization token is required') {
+    return '로그인이 필요해요. 다시 로그인해주세요.';
+  }
+
+  return '응답을 가져오지 못했어요. 서버가 실행 중인지 확인해주세요.';
+}

@@ -1,0 +1,62 @@
+import React from 'react';
+
+export function AuthPanel({
+  authMode,
+  authForm,
+  error,
+  onAuthModeChange,
+  onAuthFormChange,
+  onSubmit,
+}) {
+  return (
+    <main className="app">
+      <section className="authPanel">
+        <div>
+          <p>Levit Assignment MVP</p>
+          <h1>건강기능식품 추천 에이전트</h1>
+        </div>
+        <div className="authTabs">
+          <button
+            className={authMode === 'login' ? 'active' : ''}
+            type="button"
+            onClick={() => onAuthModeChange('login')}
+          >
+            로그인
+          </button>
+          <button
+            className={authMode === 'signup' ? 'active' : ''}
+            type="button"
+            onClick={() => onAuthModeChange('signup')}
+          >
+            회원가입
+          </button>
+        </div>
+        <form className="authForm" onSubmit={onSubmit}>
+          <input
+            value={authForm.email}
+            onChange={(event) => onAuthFormChange('email', event.target.value)}
+            placeholder="email@example.com"
+            type="email"
+          />
+          {authMode === 'signup' && (
+            <input
+              value={authForm.nickname}
+              onChange={(event) => onAuthFormChange('nickname', event.target.value)}
+              placeholder="닉네임"
+            />
+          )}
+          <input
+            value={authForm.password}
+            onChange={(event) => onAuthFormChange('password', event.target.value)}
+            placeholder="비밀번호 8자 이상"
+            type="password"
+          />
+          <button type="submit">
+            {authMode === 'signup' ? '회원가입' : '로그인'}
+          </button>
+        </form>
+        {error && <p className="error">{error}</p>}
+      </section>
+    </main>
+  );
+}
