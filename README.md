@@ -32,6 +32,7 @@ docker compose up -d
 cd server
 npm install
 npm run db:migrate
+npm run db:seed
 npm run dev
 ```
 

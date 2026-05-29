@@ -6,7 +6,19 @@ import { InMemoryVectorStore } from '../../../global/vector/in-memory-vector.sto
 import { LocalKeywordEmbeddingProvider } from '../../../global/vector/local-keyword-embedding.provider.js';
 import { OpenAIEmbeddingProvider } from '../../../global/vector/openai-embedding.provider.js';
 
-export async function createDefaultRagWorkflow() {
+export async function createDefaultRagWorkflow({
+  productChunkRepository = null,
+  embeddingProvider = null,
+  chatModel = null,
+} = {}) {
+  if (embeddingProvider && chatModel) {
+    return createWorkflow({
+      embeddingProvider,
+      chatModel,
+      documents: await loadRagDocuments({ productChunkRepository }),
+    });
+  }
+
   const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY);
 
   if (hasOpenAiKey) {
@@ -14,6 +26,7 @@ export async function createDefaultRagWorkflow() {
       return await createWorkflow({
         embeddingProvider: new OpenAIEmbeddingProvider(),
         chatModel: new OpenAIChatModel(),
+        documents: await loadRagDocuments({ productChunkRepository }),
       });
     } catch (error) {
       console.warn(
@@ -25,13 +38,30 @@ export async function createDefaultRagWorkflow() {
   return createWorkflow({
     embeddingProvider: new LocalKeywordEmbeddingProvider(),
     chatModel: new TemplateChatModel(),
+    documents: await loadRagDocuments({ productChunkRepository }),
   });
 }
 
-async function createWorkflow({ embeddingProvider, chatModel }) {
+async function loadRagDocuments({ productChunkRepository }) {
+  if (!productChunkRepository) {
+    return seedProductDocuments;
+  }
+
+  try {
+    const documents = await productChunkRepository.findDocumentsForRag();
+    return documents.length > 0 ? documents : seedProductDocuments;
+  } catch (error) {
+    console.warn(
+      `Product chunk loading failed. Falling back to seed RAG documents: ${error.message}`,
+    );
+    return seedProductDocuments;
+  }
+}
+
+async function createWorkflow({ embeddingProvider, chatModel, documents }) {
   const vectorStore = new InMemoryVectorStore({ embeddingProvider });
 
-  await vectorStore.addDocuments(seedProductDocuments);
+  await vectorStore.addDocuments(documents);
 
   return new ChatRagWorkflow({
     vectorStore,

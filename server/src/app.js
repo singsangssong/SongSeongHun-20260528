@@ -8,12 +8,15 @@ import { createRepositories } from './global/db/create-repositories.js';
 
 export async function createApp({ chatService } = {}) {
   const app = express();
+  const repositories = createRepositories();
 
   const resolvedChatService =
     chatService ??
     new ChatService({
-      ...createRepositories(),
-      ragWorkflow: await createDefaultRagWorkflow(),
+      ...repositories,
+      ragWorkflow: await createDefaultRagWorkflow({
+        productChunkRepository: repositories.productChunkRepository,
+      }),
     });
   const chatController = new ChatController({
     chatService: resolvedChatService,

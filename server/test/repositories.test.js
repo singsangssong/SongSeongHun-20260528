@@ -58,6 +58,35 @@ describe('repositories', () => {
     assert.match(db.calls[0].sql, /INSERT INTO users/);
   });
 
+  it('finds a product by name and brand', async () => {
+    db.results.push([
+      [
+        {
+          id: 21,
+          name: '유산균',
+          brand: 'Demo Brand',
+          category: 'supplement',
+          source_url: 'https://example.com/probiotics',
+          source_name: 'sample-seed',
+          created_at: null,
+          updated_at: null,
+        },
+      ],
+      [],
+    ]);
+
+    const repository = new ProductRepository(db);
+    const product = await repository.findByNameAndBrand({
+      name: '유산균',
+      brand: 'Demo Brand',
+    });
+
+    assert.equal(product.id, 21);
+    assert.equal(product.name, '유산균');
+    assert.match(db.calls[0].sql, /FROM products/);
+    assert.deepEqual(db.calls[0].params, ['유산균', 'Demo Brand']);
+  });
+
   it('maps user preference JSON fields', async () => {
     db.results.push([
       [
@@ -215,5 +244,51 @@ describe('repositories', () => {
     assert.equal(chunk.id, 22);
     assert.match(db.calls[0].sql, /INSERT INTO products/);
     assert.match(db.calls[1].sql, /INSERT INTO product_chunks/);
+  });
+
+  it('deletes chunks for a product before reseeding', async () => {
+    db.results.push([{ affectedRows: 2 }, []]);
+
+    const repository = new ProductChunkRepository(db);
+    const deletedCount = await repository.deleteByProductId(21);
+
+    assert.equal(deletedCount, 2);
+    assert.match(db.calls[0].sql, /DELETE FROM product_chunks/);
+    assert.deepEqual(db.calls[0].params, [21]);
+  });
+
+  it('loads product chunks as RAG documents', async () => {
+    db.results.push([
+      [
+        {
+          id: 22,
+          product_id: 21,
+          product_name: '유산균',
+          brand: 'Demo Brand',
+          category: 'supplement',
+          source_url: 'https://example.com/probiotics',
+          source_name: 'demo',
+          chunk_type: 'ingredient',
+          content: '유산균은 장 건강 관심 사용자가 자주 비교하는 성분입니다.',
+          metadata: '{"concern":"장 건강"}',
+          embedding_id: 'chunk-22',
+          created_at: null,
+        },
+      ],
+      [],
+    ]);
+
+    const repository = new ProductChunkRepository(db);
+    const documents = await repository.findDocumentsForRag();
+
+    assert.equal(documents[0].id, 'chunk-22');
+    assert.equal(documents[0].title, '유산균 ingredient');
+    assert.match(documents[0].content, /장 건강/);
+    assert.equal(documents[0].metadata.productName, '유산균');
+    assert.equal(documents[0].metadata.brand, 'Demo Brand');
+    assert.equal(documents[0].metadata.concern, '장 건강');
+    assert.match(db.calls[0].sql, /FROM product_chunks/);
+    assert.match(db.calls[0].sql, /LIMIT 200/);
+    assert.deepEqual(db.calls[0].params, []);
   });
 });
