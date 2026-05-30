@@ -1,7 +1,13 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { formatAction } from '../format-action.js';
 
 export function MessageList({ messages, isLoading }) {
+  const endRef = useRef(null);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages, isLoading]);
+
   return (
     <div className="messages">
       {messages.map((message, index) => (
@@ -9,11 +15,6 @@ export function MessageList({ messages, isLoading }) {
           <p>{message.content}</p>
           {message.action && (
             <span className="messageMeta">{formatAction(message.action)}</span>
-          )}
-          {message.retrievedDocumentIds?.length > 0 && (
-            <span className="messageMeta">
-              참조: {message.retrievedDocumentIds.join(', ')}
-            </span>
           )}
           {message.recommendations?.length > 0 && (
             <div className="recommendationLinks">
@@ -38,6 +39,7 @@ export function MessageList({ messages, isLoading }) {
           <span className="messageMeta">요청 처리 중</span>
         </div>
       )}
+      <div ref={endRef} />
     </div>
   );
 }

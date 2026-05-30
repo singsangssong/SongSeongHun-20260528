@@ -9,7 +9,6 @@ export function ChatPanel({
   isOnboardingCompleted,
   messages,
   input,
-  retrievedDocumentIds,
   recommendations,
   isLoading,
   error,
@@ -55,45 +54,38 @@ export function ChatPanel({
       <MessageList messages={messages} isLoading={isLoading} />
 
       <div className="chatFooter">
-        <div className="quickPrompts" aria-label="example prompts">
-          {quickPrompts.map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              onClick={() => onQuickPrompt(prompt)}
-              disabled={isLoading}
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
+        {!isOnboardingCompleted && (
+          <div className="quickPrompts" aria-label="example prompts">
+            {quickPrompts.map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                onClick={() => onQuickPrompt(prompt)}
+                disabled={isLoading}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        )}
 
-        {(retrievedDocumentIds.length > 0 || recommendations.length > 0) && (
+        {recommendations.length > 0 && (
           <div className="evidenceGrid">
-            {retrievedDocumentIds.length > 0 && (
-              <div className="retrievalPanel">
-                <span>최근 RAG 참조 문서</span>
-                <strong>{retrievedDocumentIds.join(', ')}</strong>
+            <div className="retrievalPanel">
+              <span>추천 상품 링크</span>
+              <div className="panelLinks">
+                {recommendations.map((recommendation) => (
+                  <a
+                    key={`${recommendation.name}-${recommendation.source_url}`}
+                    href={recommendation.source_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {recommendation.name}
+                  </a>
+                ))}
               </div>
-            )}
-
-            {recommendations.length > 0 && (
-              <div className="retrievalPanel">
-                <span>추천 상품 링크</span>
-                <div className="panelLinks">
-                  {recommendations.map((recommendation) => (
-                    <a
-                      key={`${recommendation.name}-${recommendation.source_url}`}
-                      href={recommendation.source_url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {recommendation.name}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         )}
       </div>

@@ -3,9 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { AuthPanel } from './components/AuthPanel.jsx';
 import { ChatPanel } from './components/ChatPanel.jsx';
 import { Sidebar } from './components/Sidebar.jsx';
+import { apiBaseUrl, isApiBaseUrlConfigured } from './config.js';
 import './styles.css';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 const authStorageKey = 'levit-auth';
 
 const quickPrompts = [
@@ -182,7 +182,7 @@ function App() {
       <AuthPanel
         authMode={authMode}
         authForm={authForm}
-        error={error}
+        error={getVisibleError(error)}
         onAuthModeChange={setAuthMode}
         onAuthFormChange={updateAuthForm}
         onSubmit={handleAuthSubmit}
@@ -208,10 +208,9 @@ function App() {
           isOnboardingCompleted={isOnboardingCompleted}
           messages={messages}
           input={input}
-          retrievedDocumentIds={retrievedDocumentIds}
           recommendations={recommendations}
           isLoading={isLoading}
-          error={error}
+          error={getVisibleError(error)}
           quickPrompts={quickPrompts}
           onNewChat={resetConversation}
           onInputChange={setInput}
@@ -272,4 +271,12 @@ function formatChatError(error) {
   }
 
   return '응답을 가져오지 못했어요. 서버가 실행 중인지 확인해주세요.';
+}
+
+function getVisibleError(error) {
+  if (!isApiBaseUrlConfigured) {
+    return 'API 서버 주소가 설정되지 않았어요. VITE_API_BASE_URL 환경변수를 확인해주세요.';
+  }
+
+  return error;
 }
