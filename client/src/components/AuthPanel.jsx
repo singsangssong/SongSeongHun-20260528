@@ -14,6 +14,9 @@ export function AuthPanel({
         <div className="authHeader">
           <p>Levit Assignment</p>
           <h1>건강기능식품 추천 에이전트</h1>
+          <span>
+            건강 고민과 복용 맥락을 바탕으로 상품 정보를 비교해드려요.
+          </span>
         </div>
         <div className="authTabs">
           <button

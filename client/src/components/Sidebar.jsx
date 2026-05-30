@@ -14,8 +14,8 @@ export function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebarBrand">
-        <span>Levit</span>
-        <strong>AI Agent</strong>
+        <span>Levit Assignment</span>
+        <strong>건강식품 상담</strong>
       </div>
 
       <div className="userCard">
