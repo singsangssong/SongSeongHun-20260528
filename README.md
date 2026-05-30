@@ -33,7 +33,6 @@ docker compose up -d
 cd server
 npm install
 npm run db:migrate
-npm run db:seed
 npm run dev
 ```
 
@@ -75,6 +74,55 @@ OPENAI_API_KEY=
 AUTH_TOKEN_SECRET=local-dev-secret
 CLIENT_ORIGIN=http://localhost:5173
 VITE_API_BASE_URL=http://localhost:3000
+```
+
+## Deploy
+
+Vercel에는 React 앱만 배포합니다.
+
+- Root Directory: `client`
+- Framework Preset: `Vite`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- Environment Variable: `VITE_API_BASE_URL=https://api.example.com`
+
+EC2에는 Node.js API와 MySQL을 Docker Compose로 배포합니다.
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml exec server npm run db:migrate
+```
+
+운영 서버 `.env`에는 최소 아래 값이 필요합니다.
+
+```bash
+API_PORT=3000
+MYSQL_DATABASE=levit_assignment
+MYSQL_USER=levit
+MYSQL_PASSWORD=change-me
+MYSQL_ROOT_PASSWORD=change-root
+OPENAI_API_KEY=sk-...
+AUTH_TOKEN_SECRET=change-to-long-random-secret
+CLIENT_ORIGIN=https://your-vercel-project.vercel.app
+```
+
+상품 데이터를 원격 MySQL에 넣은 뒤에는 API 서버를 재시작해야 새 `product_chunks`가 RAG vector store에 반영됩니다.
+MySQL은 EC2의 `127.0.0.1`에만 열어두고, 로컬에서 import할 때는 SSH 터널을 사용합니다.
+
+```bash
+ssh -L 13306:127.0.0.1:3306 ubuntu@EC2_PUBLIC_IP
+```
+
+다른 터미널에서:
+
+```bash
+cd pipeline
+python -m levit_pipeline.cli \
+  --raw ../data/raw_products.json \
+  --mysql-url mysql://levit:change-me@127.0.0.1:13306/levit_assignment
+
+ssh ubuntu@EC2_PUBLIC_IP
+docker compose -f docker-compose.prod.yml restart server
 ```
 
 
