@@ -5,7 +5,7 @@ export const apiBaseUrl = normalizeUrl(
     (import.meta.env.DEV ? localApiBaseUrl : ''),
 );
 
-export const isApiBaseUrlConfigured = Boolean(apiBaseUrl);
+export const isApiBaseUrlConfigured = import.meta.env.PROD || Boolean(apiBaseUrl);
 
 function normalizeUrl(value) {
   return String(value || '').replace(/\/+$/, '');

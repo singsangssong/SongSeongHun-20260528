@@ -78,15 +78,17 @@ VITE_API_BASE_URL=http://localhost:3000
 
 ## Deploy
 
-Vercel에는 React 앱만 배포합니다.
+과제 제출용 배포는 EC2 단일 인스턴스에서 Docker Compose로 실행합니다.
 
-- Root Directory: `client`
-- Framework Preset: `Vite`
-- Build Command: `npm run build`
-- Output Directory: `dist`
-- Environment Variable: `VITE_API_BASE_URL=https://api.example.com`
+```text
+http://EC2_PUBLIC_IP
+├── /        React client
+├── /api     Node.js API
+└── /health  API health check
+```
 
-EC2에는 Node.js API와 MySQL을 Docker Compose로 배포합니다.
+React와 API를 같은 origin에서 제공해 CORS와 HTTPS 설정 부담을 줄입니다.
+운영 확장 시에는 React를 Vercel, API를 EC2/ECS, DB를 RDS로 분리할 수 있도록 `VITE_API_BASE_URL`, `CLIENT_ORIGIN` 환경변수 구조를 유지합니다.
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
@@ -104,6 +106,14 @@ MYSQL_ROOT_PASSWORD=change-root
 OPENAI_API_KEY=sk-...
 AUTH_TOKEN_SECRET=change-to-long-random-secret
 CLIENT_ORIGIN=https://your-vercel-project.vercel.app
+```
+
+EC2 IP 기반 단일 배포에서는 아래처럼 둡니다.
+
+```bash
+CLIENT_ORIGIN=http://15.165.161.168
+VITE_API_BASE_URL=
+HTTP_PORT=80
 ```
 
 상품 데이터를 원격 MySQL에 넣은 뒤에는 API 서버를 재시작해야 새 `product_chunks`가 RAG vector store에 반영됩니다.
