@@ -1,119 +1,23 @@
 import { onboardingQuestions } from '../onboarding.questions.js';
-
-const healthConcernKeywords = [
-  ['피로', ['피로', '피곤', '기운', '활력']],
-  ['수면', ['수면', '잠', '불면']],
-  ['눈 건강', ['눈', '시력', '루테인']],
-  ['갱년기', ['갱년기']],
-  ['장 건강', ['장', '유산균', '변비', '소화']],
-  ['면역', ['면역', '감기']],
-  ['관절', ['관절', '무릎']],
-  ['피부', ['피부']],
-];
-
-const goalKeywords = [
-  ['피로 회복', ['피로 회복', '활력', '에너지']],
-  ['수면 개선', ['수면 개선', '잠', '불면']],
-  ['눈 건강 관리', ['눈', '시력', '루테인']],
-  ['장 건강 관리', ['장', '유산균', '변비', '소화']],
-  ['면역 관리', ['면역']],
-];
-
-const chronicConditionKeywords = [
-  ['갑상선 질환', ['갑상선']],
-  ['고혈압', ['고혈압', '혈압']],
-  ['당뇨', ['당뇨', '혈당']],
-  ['위장 질환', ['위장', '위염', '역류성']],
-  ['간 질환', ['간 질환', '간수치']],
-];
-
-const medicationKeywords = [
-  ['혈압약', ['혈압약']],
-  ['당뇨약', ['당뇨약', '혈당약']],
-  ['갑상선약', ['갑상선약']],
-  ['피임약', ['피임약']],
-  ['진통제', ['진통제']],
-  ['항응고제', ['항응고제', '와파린']],
-];
-
-const supplementKeywords = [
-  ['종합비타민', ['종합비타민', '멀티비타민']],
-  ['오메가3', ['오메가3', '오메가-3']],
-  ['유산균', ['유산균', '프로바이오틱스']],
-  ['마그네슘', ['마그네슘']],
-  ['비타민 D', ['비타민d', '비타민 D']],
-];
-
-const lifestylePatternKeywords = [
-  ['수면 부족', ['수면 부족', '잠이 부족', '잠을 잘 못', '자주 깨']],
-  ['야근/돌봄 부담', ['야근', '돌봄', '육아']],
-  ['운동 부족', ['운동 부족', '운동을 못', '운동 거의']],
-  ['외식/배달 잦음', ['외식', '배달']],
-  ['앉아있는 시간 많음', ['앉아', '사무직']],
-];
-
-const avoidIngredientKeywords = [
-  ['카페인', ['카페인']],
-  ['유당', ['유당', '락토스']],
-  ['철분', ['철분']],
-  ['오메가3', ['오메가3', '오메가-3']],
-  ['알레르기 유발 성분', ['알러지', '알레르기']],
-];
-
-const preferredFormatKeywords = [
-  ['구미', ['구미', '젤리']],
-  ['알약', ['알약', '정제']],
-  ['캡슐', ['캡슐']],
-  ['분말', ['분말', '가루']],
-  ['액상', ['액상', '드링크']],
-];
-
-function unique(values) {
-  return [...new Set(values.filter(Boolean))];
-}
-
-function mergeUnique(...groups) {
-  return unique(groups.flatMap((group) => group ?? []));
-}
-
-function findKeywordMatches(message, dictionary) {
-  return dictionary
-    .filter(([, keywords]) => keywords.some((keyword) => message.includes(keyword)))
-    .map(([value]) => value);
-}
-
-function findPreferredFormats(message) {
-  return preferredFormatKeywords
-    .filter(([value, keywords]) => {
-      const isComparedAgainst = message.includes(`${value}보다`);
-      return (
-        !isComparedAgainst &&
-        keywords.some((keyword) => message.includes(keyword))
-      );
-    })
-    .map(([value]) => value);
-}
-
-function parseAgeGroup(message) {
-  const match = message.match(/([2-7]0)대/);
-  return match ? `${match[1]}s` : null;
-}
-
-function parseGender(message) {
-  if (/(여성|여자|엄마|어머니|아내)/.test(message)) return 'female';
-  if (/(남성|남자|아빠|아버지|남편)/.test(message)) return 'male';
-  return null;
-}
-
-function parsePregnancyStatus(message) {
-  if (/(임신.*아니|임신.*없|수유.*아니|해당 없음|해당없음)/.test(message)) {
-    return 'not_pregnant';
-  }
-  if (/임신 준비/.test(message)) return 'planning';
-  if (/수유/.test(message)) return 'breastfeeding';
-  if (/임신/.test(message)) return 'pregnant';
-  return null;
-}
+import { normalizeExtraction } from '../onboarding.extraction-normalizer.js';
+import {
+  avoidIngredientKeywords,
+  chronicConditionKeywords,
+  goalKeywords,
+  healthConcernKeywords,
+  lifestylePatternKeywords,
+  medicationKeywords,
+  supplementKeywords,
+} from '../onboarding.keyword-dictionaries.js';
+import {
+  arrayOrEmpty,
+  findKeywordMatches,
+  findPreferredFormats,
+  mergeUnique,
+  parseAgeGroup,
+  parseGender,
+  parsePregnancyStatus,
+} from '../onboarding.parser.js';
 
 export class OnboardingService {
   constructor({ extractionModel = null } = {}) {
@@ -374,62 +278,4 @@ export class OnboardingService {
       onboardingStep: preference.onboardingStep ?? 0,
     };
   }
-}
-
-function arrayOrEmpty(value) {
-  return Array.isArray(value) ? value.filter(Boolean) : [];
-}
-
-function normalizeExtraction(value) {
-  const source = value && typeof value === 'object' ? value : {};
-
-  return {
-    ageGroup: normalizeAgeGroup(source.ageGroup),
-    gender: normalizeGender(source.gender),
-    healthConcerns: normalizeStringArray(source.healthConcerns),
-    goals: normalizeStringArray(source.goals),
-    pregnancyStatus: normalizePregnancyStatus(source.pregnancyStatus),
-    hasNoPregnancyContext: Boolean(source.hasNoPregnancyContext),
-    chronicConditions: normalizeStringArray(source.chronicConditions),
-    hasNoChronicConditions: Boolean(source.hasNoChronicConditions),
-    medications: normalizeStringArray(source.medications),
-    hasNoMedications: Boolean(source.hasNoMedications),
-    currentSupplements: normalizeStringArray(source.currentSupplements),
-    lifestylePatterns: normalizeStringArray(source.lifestylePatterns),
-    avoidIngredients: normalizeStringArray(source.avoidIngredients),
-    preferredFormats: normalizeStringArray(source.preferredFormats),
-  };
-}
-
-function normalizeStringArray(value) {
-  if (!Array.isArray(value)) return [];
-  return unique(
-    value
-      .map((item) => (typeof item === 'string' ? item.trim() : ''))
-      .filter(Boolean),
-  );
-}
-
-function normalizeAgeGroup(value) {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  if (/^[2-7]0s$/.test(trimmed)) return trimmed;
-
-  return parseAgeGroup(trimmed);
-}
-
-function normalizeGender(value) {
-  if (value === 'female' || value === 'male') return value;
-  if (typeof value !== 'string') return null;
-
-  return parseGender(value.trim());
-}
-
-function normalizePregnancyStatus(value) {
-  if (['pregnant', 'planning', 'breastfeeding', 'not_pregnant'].includes(value)) {
-    return value;
-  }
-  if (typeof value !== 'string') return null;
-
-  return parsePregnancyStatus(value.trim());
 }

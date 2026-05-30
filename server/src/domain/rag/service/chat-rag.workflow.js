@@ -1,75 +1,21 @@
-import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
-
-const State = Annotation.Root({
-  messages: Annotation({
-    reducer: (_left, right) => right,
-    default: () => [],
-  }),
-  userId: Annotation({
-    reducer: (_left, right) => right,
-    default: () => null,
-  }),
-  userPreferences: Annotation({
-    reducer: (_left, right) => right,
-    default: () => ({}),
-  }),
-  nextAction: Annotation({
-    reducer: (_left, right) => right,
-    default: () => 'SEARCH_RAG',
-  }),
-  intent: Annotation({
-    reducer: (_left, right) => right,
-    default: () => 'RECOMMENDATION',
-  }),
-  retrievedDocuments: Annotation({
-    reducer: (_left, right) => right,
-    default: () => [],
-  }),
-  contextDocuments: Annotation({
-    reducer: (_left, right) => right,
-    default: () => [],
-  }),
-  recommendations: Annotation({
-    reducer: (_left, right) => right,
-    default: () => [],
-  }),
-  contextGap: Annotation({
-    reducer: (_left, right) => right,
-    default: () => ({
-      hasGap: false,
-      reason: null,
-      keywords: [],
-    }),
-  }),
-  answer: Annotation({
-    reducer: (_left, right) => right,
-    default: () => '',
-  }),
-});
-
-const noProductDataAnswer =
-  '현재 추천 가능한 상품 데이터가 없습니다. 상품 데이터를 먼저 수집/import한 뒤 다시 질문해주세요.';
-
-const medicationKeywords = ['혈압약', '당뇨약', '갑상선약', '피임약', '진통제', '항응고제'];
-const conditionKeywords = ['고혈압', '당뇨', '갑상선', '위장', '간 질환'];
-const pregnancyKeywords = ['임신', '수유', '임신 준비'];
-
-function flattenPreferenceValues(values) {
-  return Object.values(values ?? {})
-    .flat()
-    .filter(Boolean)
-    .join(' ');
-}
-
-function findMentionedKeywords(message, keywords) {
-  return keywords.filter((keyword) => message.includes(keyword));
-}
-
-function findUnknownKeywords(message, keywords, knownText) {
-  return findMentionedKeywords(message, keywords).filter(
-    (keyword) => !knownText.includes(keyword),
-  );
-}
+import { END, START, StateGraph } from '@langchain/langgraph';
+import {
+  conditionKeywords,
+  medicationKeywords,
+  noProductDataAnswer,
+  pregnancyKeywords,
+} from '../rag.constants.js';
+import {
+  extractProductIds,
+  findMentionedKeywords,
+  findUnknownKeywords,
+  flattenPreferenceValues,
+  isRelevantDocument,
+  mergeContextDocuments,
+  sortContextDocuments,
+} from '../rag.context.js';
+import { extractRecommendations } from '../rag.recommendation.js';
+import { RagState } from '../rag.state.js';
 
 export class ChatRagWorkflow {
   constructor({
@@ -107,7 +53,7 @@ export class ChatRagWorkflow {
   }
 
   createGraph() {
-    return new StateGraph(State)
+    return new StateGraph(RagState)
       .addNode('classifyIntent', this.classifyIntentNode)
       .addNode('respondDirectly', this.respondDirectlyNode)
       .addNode('checkContextGap', this.checkContextGapNode)
@@ -318,80 +264,4 @@ export class ChatRagWorkflow {
       '건강기능식품 추천과 관련해 피로, 수면, 장 건강, 복용 중인 약, 피하고 싶은 성분을 알려주시면 이어서 도와드릴게요.',
     ].join(' ');
   }
-}
-
-function isRelevantDocument(document, minSimilarityScore) {
-  if (typeof document.score !== 'number') return true;
-  return document.score >= minSimilarityScore;
-}
-
-function extractProductIds(documents) {
-  return [
-    ...new Set(
-      documents
-        .map((document) => document.metadata?.productId)
-        .filter((productId) => productId !== undefined && productId !== null),
-    ),
-  ];
-}
-
-function mergeContextDocuments(loadedDocuments, retrievedDocuments) {
-  const byId = new Map();
-
-  for (const document of [...loadedDocuments, ...retrievedDocuments]) {
-    byId.set(document.id, document);
-  }
-
-  return sortContextDocuments([...byId.values()]);
-}
-
-function sortContextDocuments(documents) {
-  const order = new Map([
-    ['summary', 0],
-    ['ingredients', 1],
-    ['claims', 2],
-    ['cautions', 3],
-    ['reviews', 4],
-  ]);
-
-  return documents
-    .map((document, index) => ({ document, index }))
-    .sort((leftEntry, rightEntry) => {
-      const left = leftEntry.document;
-      const right = rightEntry.document;
-      const leftProductId = left.metadata?.productId ?? 0;
-      const rightProductId = right.metadata?.productId ?? 0;
-      if (leftProductId !== rightProductId) return leftProductId - rightProductId;
-
-      const leftOrder = order.get(left.metadata?.chunkType) ?? 99;
-      const rightOrder = order.get(right.metadata?.chunkType) ?? 99;
-      if (leftOrder !== rightOrder) return leftOrder - rightOrder;
-
-      return leftEntry.index - rightEntry.index;
-    })
-    .map((entry) => entry.document);
-}
-
-function extractRecommendations(documents) {
-  const recommendations = [];
-  const seen = new Set();
-
-  for (const document of documents) {
-    const metadata = document.metadata ?? {};
-    const name = metadata.productName || metadata.product_name;
-    const sourceUrl = metadata.sourceUrl || metadata.source_url;
-    if (!name || !sourceUrl) continue;
-
-    const key = `${name}|${sourceUrl}`;
-    if (seen.has(key)) continue;
-
-    seen.add(key);
-    recommendations.push({
-      name,
-      brand: metadata.brand || '',
-      source_url: sourceUrl,
-    });
-  }
-
-  return recommendations;
 }
