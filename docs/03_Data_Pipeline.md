@@ -1,50 +1,97 @@
 # Data Ingestion & RAG Chunking Pipeline
 
 ## 1. Overview
-본 프로젝트의 데이터 파이프라인은 외부 커머스 환경에서 수집된 비정형 상품 데이터를 정규화(Normalization)하고, RAG(Retrieval-Augmented Generation) 시스템에 즉각 활용 가능한 최적의 텍스트 청크(Chunk)로 가공하여 관계형 데이터베이스(MySQL)에 안전하게 적재하는 **Offline-first 데이터 배포 시스템**입니다. 
 
-실시간 서빙 레이어(Node.js API 서버)와 데이터 적재 파이프라인(Python 클러스터)을 완벽히 분리하여 설계함으로써, 대규모 데이터 스크래핑 및 파싱 작업이 상용 서비스의 성능과 가용성에 영향을 주지 않도록 구조적 안정성을 확보했습니다.
+본 프로젝트의 데이터 파이프라인은 외부 상품 페이지에서 얻은 비정형 데이터를 RAG에 사용할 수 있는 `products`, `product_chunks` 형태로 바꾸는 역할을 합니다.
 
----
+현재 흐름은 아래와 같습니다.
 
-## 2. 워크플로우 및 모듈 설명
+```mermaid
+flowchart LR
+    HTML["Pillyze HTML"]
+    Extract["LLM structured extraction"]
+    Raw["data/raw_products.json"]
+    Pipeline["Python pipeline"]
+    DB["MySQL<br/>products / product_chunks"]
+    Server["Node.js server restart"]
+    RAG["RAG response"]
 
-```text
-[Raw Data] ──> Crawler Interface ──> Normalizer & Validator ──> Chunker (Semantic Split) ──> DB Writer (PEP 249)
+    HTML --> Extract
+    Extract --> Raw
+    Raw --> Pipeline
+    Pipeline --> DB
+    DB --> Server
+    Server --> RAG
 ```
 
-1. **Crawler 레이어 (`crawler.py`)**
-- 역할: 다양한 수집 채널(정적 파일, 외부 API, 웹 스크래퍼 등)로부터 Raw 데이터를 일관된 인터페이스로 가져옵니다.
+---
 
-2. **Normalizer & Validator 레이어 (`normalizer.py`)**
-- 역할: 외부 공급자마다 상이한 비정형 데이터 필드를 검증하고, 시스템이 보장하는 타입 안정적인 Product, Ingredient, Review 데이터 구조로 정규화합니다.
+## 2. 왜 LLM 구조화 추출을 선택했는지
 
-3. **Chunker 레이어 (`chunker.py`)**
-- 역할: 정규화된 상품 구조를 LLM의 컨텍스트 윈도우 한계 및 시맨틱 밀도를 고려한 `ProductChunk` 엔티티 배열로 분할합니다.
-- 청크 분할 시 데이터 유실을 방지하기 위해, 독립적인 `chunk_type`별로 의미적 줄바꿈 텍스트를 구성함과 동시에, 각 청크의 본문이 어떤 상품에서 기인했는지 RAG 검색 시점에 추적할 수 있도록 `product_id`, `product_name`, `brand`, `source_url` 등을 보존하는 JSON 메타데이터 스키마를 동적으로 생성합니다.
+처음에는 URL을 입력하면 HTML 태그를 직접 파싱하는 crawler를 만들려고 했습니다. 이 방식은 몇가지 문제가 있습니다.
+1. 각 사이트마다 챗봇이나 사이트 접근을 검증하는 보안 시스템에 의해 크롤링이 어려울 수 있습니다.
+2. 각 사이트마다 html의 태그 구조가 재각각입니다.
+3. 정보가 부족한 사이트의 데이터는 오히려 할루시네이션을 초래할 수 있습니다.
 
-4. **Writer 레이어 (`writer.py`)**
-- 역할: 가공 완료된 데이터들을 데이터베이스 스토리지에 적재합니다.
+이번 과제에서 확인하고 싶은 핵심은 대규모 크롤러 구현이 아니라, **크롤링한 데이터가 AI 추천 근거로 연결되는지**라고 보았습니다.
+그래서 아래 방식으로 범위를 줄였습니다.
+
+1. 상품 페이지 HTML 원문을 확보합니다.
+2. AI에게 정해진 JSON 스키마로 정보 추출을 요청합니다.
+3. 사람이 한 번 확인한 `raw_products.json`을 pipeline에 넣습니다.
+4. pipeline이 정규화, chunk 생성, MySQL 적재를 담당합니다.
 
 ---
 
-## 3. 데이터 청크화 전략
+## 3. pipeline 모듈
 
-데이터는 유저의 질문 맥락에 따라 가장 자연스럽게 인덱싱될 수 있도록 **의미 섹션 단위**로 쪼개져 저장됩니다. 
-데이터 레이어의 불필요한 오버헤드를 막기 위해, 입력 데이터 내 해당 섹션의 배열이나 문구가 비어있다면 데이터 행 자체를 생성하지 않도록 반영되어 있습니다.
+```text
+JsonFileProductSource (Json 기반 상품 데이터)
+  -> normalize_products (상품 데이터 정규화)
+  -> build_chunks_for_products (의미 섹션 기반 청크화)
+  -> DbApiProductWriter (디비에 저장)
+```
 
-### Chunk 생성 및 매핑 기준
+### `crawler.py`
 
-| 입력 필드 | 생성된 `chunk_type` | Chunk 데이터 생성 조건 및 텍스트 구성 형태 |
-| :--- | :--- | :--- |
-| `name`, `brand`, `price`, `reviews` | **`summary`** | **항상 생성.** 상품명, 브랜드, 가격, 총 리뷰 수를 종합적인 문자열 키-값 형태로 빌드 |
-| `ingredients` | **`ingredients`** | 원재료 및 성분이 1개 이상 존재할 때, 각 성분명과 함량 정보(`amount`)를 줄바꿈 리스트로 구조화 |
-| `claims` | **`claims`** | 기능성 표시 및 주요 마케팅 소구 문구가 존재할 때 생성 |
-| `cautions` | **`cautions`** | 섭취 시 주의사항 및 부작용 경고 문구가 존재할 때 생성 |
-| `reviews` | **`reviews`** | 실제 실구매자 리뷰 평점과 텍스트가 존재할 때 원문을 결합하여 생성 |
+현재는 실제 네트워크 crawler가 아니라 JSON 파일 입력 source 역할을 합니다.
+`data/raw_products.json`을 읽어 pipeline에 넘깁니다.
+
+### `normalizer.py`
+
+외부에서 들어온 raw JSON을 내부 `Product`, `Ingredient`, `Review` 구조로 정규화합니다.
+필수 값이 없으면 `raw_products[index]` 위치를 포함해 에러를 냅니다.
+
+### `chunker.py`
+
+상품 정보를 의미 섹션 단위로 나눕니다.
+이렇게 나누면 유저 질문이 “주의사항”, “리뷰”, “성분” 중 어떤 맥락에 가까운지 검색하기 쉬워집니다.
+
+### `writer.py`
+
+정규화된 상품과 chunk를 MySQL에 저장합니다.
+RAG에서 상품 원문으로 이동할 수 있도록 `source_url`도 함께 유지합니다.
 
 ---
 
-### 4. 개선 사항
-- **수동 -> 자동화 전환:** 현재 개발자가 수동으로 상품 데이터를 가공 및 적재해야 하는 방식을 개선하여, 입력된 URL의 HTML 소스를 직접 파싱하고 정보를 자동 수집하는 파이프라인 구축이 필요합니다.
-- **보안 및 규제 대응:** 자동화 과정에서 발생할 수 있는 웹사이트 보안 정책 및 크롤링 차단 이슈를 안정적으로 해결하여 파이프라인의 가동성을 확보해야 합니다.
+## 4. Chunk 생성 기준
+
+| 입력 필드 | 생성된 `chunk_type` | 생성 조건 |
+| --- | --- | --- |
+| `name`, `brand`, `price`, `reviews` | `summary` | 항상 생성 |
+| `ingredients` | `ingredients` | 성분이 1개 이상 있을 때 |
+| `claims` | `claims` | 기능성/특징 문구가 있을 때 |
+| `cautions` | `cautions` | 주의사항 문구가 있을 때 |
+| `reviews` | `reviews` | 리뷰가 1개 이상 있을 때 |
+
+각 chunk의 metadata에는 `product_name`, `brand`, `source_url`, `source_product_id`, `chunk_index`를 넣습니다.
+RAG 검색 후 추천 상품 링크를 프론트엔드에서 보여줄 수 있도록 `source_url`을 유지하는 것이 중요했습니다.
+
+---
+
+## 6. 개선 사항
+
+- **자동화 수준 개선:** 현재는 HTML 원문을 AI로 구조화한 뒤 사람이 확인하는 방식입니다. 추후에는 URL 입력, HTML 수집, LLM 추출, 검수 큐까지 이어지는 형태로 자동화할 수 있습니다.
+- **출처 신뢰도 관리:** 건강기능식품은 광고성 정보가 많기 때문에, 공식 상품 페이지나 신뢰 가능한 기관 데이터를 우선 사용하는 정책이 필요합니다.
+- **Vector DB 분리:** 현재는 API 서버 시작 시 인메모리 vector store를 구성합니다. 운영 단계에서는 외부 vector DB로 분리해 import 직후 검색에 반영되도록 개선할 수 있습니다.
+- **데이터 품질 검수:** LLM 추출 결과가 잘못될 수 있으므로, 필수 필드 누락, 가격/성분 형식, 리뷰 길이 등을 자동 검수하는 단계가 필요합니다. 추가로 추천 품질을 검증하는 도구를 통해 품질 점수를 객관적인 지표로 확인할 수 있습니다.
