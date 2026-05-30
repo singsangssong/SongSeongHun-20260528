@@ -100,4 +100,38 @@ export class OpenAIChatModel {
 
     return response.choices[0]?.message?.content ?? '';
   }
+
+  async extractOnboardingPreferences({ message, preference, onboardingStep }) {
+    const response = await this.client.chat.completions.create({
+      model: this.model,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: [
+            '너는 건강기능식품 추천 서비스의 온보딩 답변을 구조화하는 정보 추출기다.',
+            '사용자의 자연어 답변에서 확인 가능한 정보만 JSON으로 추출한다.',
+            'HTML, 마크다운, 설명 없이 JSON 객체만 답한다.',
+            '없는 정보는 null, false, 또는 []로 둔다. 추측하지 않는다.',
+            'ageGroup은 20s, 30s, 40s, 50s, 60s, 70s 중 하나 또는 null.',
+            'gender는 female, male 중 하나 또는 null.',
+            'pregnancyStatus는 pregnant, planning, breastfeeding, not_pregnant 중 하나 또는 null.',
+            '사용자가 해당 없음/없다고 말하면 hasNoPregnancyContext, hasNoChronicConditions, hasNoMedications를 true로 표시할 수 있다.',
+            '건강 고민, 목표, 질환, 약, 영양제, 생활패턴, 피하고 싶은 성분, 선호 제형은 짧은 한국어 명사구 배열로 추출한다.',
+            '응답 스키마: {"ageGroup":null,"gender":null,"healthConcerns":[],"goals":[],"pregnancyStatus":null,"hasNoPregnancyContext":false,"chronicConditions":[],"hasNoChronicConditions":false,"medications":[],"hasNoMedications":false,"currentSupplements":[],"lifestylePatterns":[],"avoidIngredients":[],"preferredFormats":[]}',
+          ].join('\n'),
+        },
+        {
+          role: 'user',
+          content: [
+            `현재 온보딩 단계: ${onboardingStep}`,
+            `기존 선호 정보: ${JSON.stringify(preference ?? {})}`,
+            `사용자 답변: ${message}`,
+          ].join('\n\n'),
+        },
+      ],
+    });
+
+    return JSON.parse(response.choices[0]?.message?.content ?? '{}');
+  }
 }

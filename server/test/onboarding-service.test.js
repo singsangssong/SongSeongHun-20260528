@@ -127,4 +127,50 @@ describe('OnboardingService', () => {
     assert.deepEqual(result.preferencePatch.medications, []);
     assert.deepEqual(result.preferencePatch.safetyNotes, ['혈압약', '고혈압']);
   });
+
+  it('uses LLM extraction when natural language does not match local keywords', async () => {
+    const service = new OnboardingService({
+      extractionModel: {
+        async extractOnboardingPreferences({ message, onboardingStep }) {
+          assert.equal(onboardingStep, 0);
+          assert.match(message, /아침에 일어나기가 힘들/);
+
+          return {
+            ageGroup: '40s',
+            gender: 'female',
+            healthConcerns: ['피로', '수면'],
+            goals: ['피로 회복'],
+          };
+        },
+      },
+    });
+    const result = await service.handleAnswer({
+      preference: new UserPreference({ id: 1, userId: 1 }),
+      message: '마흔 넘은 워킹맘인데 아침에 일어나기가 힘들고 밤에도 자주 깨요',
+    });
+
+    assert.equal(result.preferencePatch.ageGroup, '40s');
+    assert.equal(result.preferencePatch.gender, 'female');
+    assert.deepEqual(result.preferencePatch.healthConcerns, ['피로', '수면']);
+    assert.deepEqual(result.preferencePatch.goals, ['피로 회복']);
+    assert.equal(result.preferencePatch.onboardingStep, 1);
+  });
+
+  it('falls back to the local parser when LLM extraction fails', async () => {
+    const service = new OnboardingService({
+      extractionModel: {
+        async extractOnboardingPreferences() {
+          throw new Error('temporary LLM failure');
+        },
+      },
+    });
+    const result = await service.handleAnswer({
+      preference: new UserPreference({ id: 1, userId: 1 }),
+      message: '40대 여성이고 피로가 고민이에요',
+    });
+
+    assert.equal(result.preferencePatch.ageGroup, '40s');
+    assert.deepEqual(result.preferencePatch.healthConcerns, ['피로']);
+    assert.equal(result.preferencePatch.onboardingStep, 1);
+  });
 });

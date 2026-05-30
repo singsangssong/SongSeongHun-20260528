@@ -72,8 +72,8 @@ function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
-function mergeUnique(existing, incoming) {
-  return unique([...(existing ?? []), ...(incoming ?? [])]);
+function mergeUnique(...groups) {
+  return unique(groups.flatMap((group) => group ?? []));
 }
 
 function findKeywordMatches(message, dictionary) {
@@ -116,25 +116,69 @@ function parsePregnancyStatus(message) {
 }
 
 export class OnboardingService {
-  handleAnswer({ preference, message }) {
-    const normalizedMessage = message.trim();
-    const step = preference.onboardingStep ?? 0;
-
-    if (step <= 0) return this.handleProfileAndConcernStep(preference, normalizedMessage);
-    if (step === 1) return this.handleSafetyStep(preference, normalizedMessage);
-    if (step === 2) return this.handleMedicationStep(preference, normalizedMessage);
-    return this.handleLifestyleStep(preference, normalizedMessage);
+  constructor({ extractionModel = null } = {}) {
+    this.extractionModel = extractionModel;
   }
 
-  handleProfileAndConcernStep(preference, message) {
-    const patch = this.mergeSafetyNotes(this.toPatch(preference), message);
-    const ageGroup = parseAgeGroup(message) ?? preference.ageGroup;
-    const gender = parseGender(message) ?? preference.gender;
+  handleAnswer({ preference, message }) {
+    const normalizedMessage = message.trim();
+
+    if (this.extractionModel) {
+      return this.handleAnswerWithModel({
+        preference,
+        message: normalizedMessage,
+      });
+    }
+
+    return this.handleAnswerWithExtraction({
+      preference,
+      message: normalizedMessage,
+    });
+  }
+
+  async handleAnswerWithModel({ preference, message }) {
+    let extraction = {};
+
+    try {
+      extraction = await this.extractionModel.extractOnboardingPreferences({
+        message,
+        preference: this.toPatch(preference),
+        onboardingStep: preference.onboardingStep ?? 0,
+      });
+    } catch (error) {
+      console.warn(`Onboarding extraction failed. Falling back to local parser: ${error.message}`);
+    }
+
+    return this.handleAnswerWithExtraction({
+      preference,
+      message,
+      extraction: normalizeExtraction(extraction),
+    });
+  }
+
+  handleAnswerWithExtraction({ preference, message, extraction = {} }) {
+    const step = preference.onboardingStep ?? 0;
+
+    if (step <= 0) return this.handleProfileAndConcernStep(preference, message, extraction);
+    if (step === 1) return this.handleSafetyStep(preference, message, extraction);
+    if (step === 2) return this.handleMedicationStep(preference, message, extraction);
+    return this.handleLifestyleStep(preference, message, extraction);
+  }
+
+  handleProfileAndConcernStep(preference, message, extraction = {}) {
+    const patch = this.mergeSafetyNotes(this.toPatch(preference), message, extraction);
+    const ageGroup = extraction.ageGroup ?? parseAgeGroup(message) ?? preference.ageGroup;
+    const gender = extraction.gender ?? parseGender(message) ?? preference.gender;
     const healthConcerns = mergeUnique(
       preference.healthConcerns,
+      extraction.healthConcerns,
       findKeywordMatches(message, healthConcernKeywords),
     );
-    const goals = mergeUnique(preference.goals, findKeywordMatches(message, goalKeywords));
+    const goals = mergeUnique(
+      preference.goals,
+      extraction.goals,
+      findKeywordMatches(message, goalKeywords),
+    );
 
     if (!ageGroup || healthConcerns.length === 0) {
       const hasSavedSafetyContext = patch.safetyNotes.length > (preference.safetyNotes ?? []).length;
@@ -168,16 +212,25 @@ export class OnboardingService {
     };
   }
 
-  handleSafetyStep(preference, message) {
-    const patch = this.mergeSafetyNotes(this.toPatch(preference), message);
-    const pregnancyStatus = parsePregnancyStatus(message) ?? preference.pregnancyStatus;
+  handleSafetyStep(preference, message, extraction = {}) {
+    const patch = this.mergeSafetyNotes(this.toPatch(preference), message, extraction);
+    const pregnancyStatus =
+      extraction.pregnancyStatus ?? parsePregnancyStatus(message) ?? preference.pregnancyStatus;
     const chronicConditions = mergeUnique(
       preference.chronicConditions,
+      extraction.chronicConditions,
       findKeywordMatches(message, chronicConditionKeywords),
     );
-    const hasNoCondition = /(질환.*없|지병.*없|없어요|없습니다|해당 없음|해당없음)/.test(message);
+    const hasNoCondition =
+      extraction.hasNoChronicConditions ||
+      /(질환.*없|지병.*없|없어요|없습니다|해당 없음|해당없음)/.test(message);
 
-    if (!pregnancyStatus && chronicConditions.length === 0 && !hasNoCondition) {
+    if (
+      !pregnancyStatus &&
+      chronicConditions.length === 0 &&
+      !hasNoCondition &&
+      !extraction.hasNoPregnancyContext
+    ) {
       return this.reask({
         patch: { ...patch, onboardingStep: 1 },
         message: onboardingQuestions.safety,
@@ -197,17 +250,21 @@ export class OnboardingService {
     };
   }
 
-  handleMedicationStep(preference, message) {
-    const patch = this.mergeSafetyNotes(this.toPatch(preference), message);
+  handleMedicationStep(preference, message, extraction = {}) {
+    const patch = this.mergeSafetyNotes(this.toPatch(preference), message, extraction);
     const medications = mergeUnique(
       preference.medications,
+      extraction.medications,
       findKeywordMatches(message, medicationKeywords),
     );
     const currentSupplements = mergeUnique(
       preference.currentSupplements,
+      extraction.currentSupplements,
       findKeywordMatches(message, supplementKeywords),
     );
-    const hasNone = /(복용.*없|먹는.*없|없어요|없습니다|해당 없음|해당없음)/.test(message);
+    const hasNone =
+      extraction.hasNoMedications ||
+      /(복용.*없|먹는.*없|없어요|없습니다|해당 없음|해당없음)/.test(message);
 
     if (medications.length === 0 && currentSupplements.length === 0 && !hasNone) {
       return this.reask({
@@ -229,18 +286,21 @@ export class OnboardingService {
     };
   }
 
-  handleLifestyleStep(preference, message) {
-    const patch = this.mergeSafetyNotes(this.toPatch(preference), message);
+  handleLifestyleStep(preference, message, extraction = {}) {
+    const patch = this.mergeSafetyNotes(this.toPatch(preference), message, extraction);
     const lifestylePatterns = mergeUnique(
       preference.lifestylePatterns,
+      extraction.lifestylePatterns,
       findKeywordMatches(message, lifestylePatternKeywords),
     );
     const avoidIngredients = mergeUnique(
       preference.avoidIngredients,
+      extraction.avoidIngredients,
       findKeywordMatches(message, avoidIngredientKeywords),
     );
     const preferredFormats = mergeUnique(
       preference.preferredFormats,
+      extraction.preferredFormats,
       findPreferredFormats(message),
     );
 
@@ -280,8 +340,11 @@ export class OnboardingService {
     };
   }
 
-  mergeSafetyNotes(patch, message) {
+  mergeSafetyNotes(patch, message, extraction = {}) {
     const safetyNotes = mergeUnique(patch.safetyNotes, [
+      ...arrayOrEmpty(extraction.medications),
+      ...arrayOrEmpty(extraction.chronicConditions),
+      extraction.pregnancyStatus,
       ...findKeywordMatches(message, medicationKeywords),
       ...findKeywordMatches(message, chronicConditionKeywords),
       parsePregnancyStatus(message),
@@ -311,4 +374,62 @@ export class OnboardingService {
       onboardingStep: preference.onboardingStep ?? 0,
     };
   }
+}
+
+function arrayOrEmpty(value) {
+  return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
+function normalizeExtraction(value) {
+  const source = value && typeof value === 'object' ? value : {};
+
+  return {
+    ageGroup: normalizeAgeGroup(source.ageGroup),
+    gender: normalizeGender(source.gender),
+    healthConcerns: normalizeStringArray(source.healthConcerns),
+    goals: normalizeStringArray(source.goals),
+    pregnancyStatus: normalizePregnancyStatus(source.pregnancyStatus),
+    hasNoPregnancyContext: Boolean(source.hasNoPregnancyContext),
+    chronicConditions: normalizeStringArray(source.chronicConditions),
+    hasNoChronicConditions: Boolean(source.hasNoChronicConditions),
+    medications: normalizeStringArray(source.medications),
+    hasNoMedications: Boolean(source.hasNoMedications),
+    currentSupplements: normalizeStringArray(source.currentSupplements),
+    lifestylePatterns: normalizeStringArray(source.lifestylePatterns),
+    avoidIngredients: normalizeStringArray(source.avoidIngredients),
+    preferredFormats: normalizeStringArray(source.preferredFormats),
+  };
+}
+
+function normalizeStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return unique(
+    value
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter(Boolean),
+  );
+}
+
+function normalizeAgeGroup(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (/^[2-7]0s$/.test(trimmed)) return trimmed;
+
+  return parseAgeGroup(trimmed);
+}
+
+function normalizeGender(value) {
+  if (value === 'female' || value === 'male') return value;
+  if (typeof value !== 'string') return null;
+
+  return parseGender(value.trim());
+}
+
+function normalizePregnancyStatus(value) {
+  if (['pregnant', 'planning', 'breastfeeding', 'not_pregnant'].includes(value)) {
+    return value;
+  }
+  if (typeof value !== 'string') return null;
+
+  return parsePregnancyStatus(value.trim());
 }

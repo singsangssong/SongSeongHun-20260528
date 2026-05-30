@@ -7,8 +7,10 @@ import { AuthService } from './domain/auth/service/auth.service.js';
 import { ChatController } from './domain/chat/controller/chat.controller.js';
 import { createChatRouter } from './domain/chat/routes/chat.routes.js';
 import { ChatService } from './domain/chat/service/chat.service.js';
+import { OnboardingService } from './domain/onboarding/service/onboarding.service.js';
 import { createDefaultRagWorkflow } from './domain/rag/service/create-default-rag-workflow.js';
 import { createRepositories } from './global/db/create-repositories.js';
+import { OpenAIChatModel } from './global/llm/openai-chat.model.js';
 
 export async function createApp({ chatService } = {}) {
   const app = express();
@@ -18,6 +20,9 @@ export async function createApp({ chatService } = {}) {
     chatService ??
     new ChatService({
       ...repositories,
+      onboardingService: new OnboardingService({
+        extractionModel: process.env.OPENAI_API_KEY ? new OpenAIChatModel() : null,
+      }),
       ragWorkflow: await createDefaultRagWorkflow({
         productChunkRepository: repositories.productChunkRepository,
       }),

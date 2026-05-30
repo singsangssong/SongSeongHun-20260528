@@ -131,4 +131,42 @@ describe('LLM models', () => {
     assert.match(prompt, /상품 검색 결과를 만들지 않는다/);
     assert.doesNotMatch(prompt, /추천 요약/);
   });
+
+  it('asks OpenAI to extract onboarding answers as strict JSON', async () => {
+    const calls = [];
+    const model = new OpenAIChatModel({
+      client: {
+        chat: {
+          completions: {
+            async create(payload) {
+              calls.push(payload);
+              return {
+                choices: [
+                  {
+                    message: {
+                      content:
+                        '{"ageGroup":"40s","gender":"female","healthConcerns":["피로"],"goals":[]}',
+                    },
+                  },
+                ],
+              };
+            },
+          },
+        },
+      },
+    });
+
+    const result = await model.extractOnboardingPreferences({
+      message: '마흔 넘었고 요즘 너무 지쳐요',
+      preference: {},
+      onboardingStep: 0,
+    });
+
+    assert.equal(result.ageGroup, '40s');
+    assert.deepEqual(result.healthConcerns, ['피로']);
+    assert.deepEqual(calls[0].response_format, { type: 'json_object' });
+    const prompt = calls[0].messages.map((message) => message.content).join('\n');
+    assert.match(prompt, /온보딩 답변을 구조화/);
+    assert.match(prompt, /추측하지 않는다/);
+  });
 });

@@ -89,7 +89,7 @@ export class ChatTurnWorkflow {
   };
 
   onboardingNode = async (state) => {
-    const onboardingResult = this.onboardingService.handleAnswer({
+    const onboardingResult = await this.onboardingService.handleAnswer({
       preference: state.preference,
       message: state.message,
     });
