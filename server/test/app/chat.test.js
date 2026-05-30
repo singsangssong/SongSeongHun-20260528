@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ChatService } from '../src/domain/chat/service/chat.service.js';
-import { UserPreference } from '../src/domain/user/entity/user-preference.entity.js';
-import { User } from '../src/domain/user/entity/user.entity.js';
+import { ChatService } from '../../src/domain/chat/service/chat.service.js';
+import { UserPreference } from '../../src/domain/user/entity/user-preference.entity.js';
+import { User } from '../../src/domain/user/entity/user.entity.js';
 
 function createChatService() {
   const user = new User({ id: 1, externalId: 'demo-user' });

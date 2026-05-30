@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { OnboardingService } from '../src/domain/onboarding/service/onboarding.service.js';
-import { UserPreference } from '../src/domain/user/entity/user-preference.entity.js';
+import { OnboardingService } from '../../../src/domain/onboarding/service/onboarding.service.js';
+import { UserPreference } from '../../../src/domain/user/entity/user-preference.entity.js';
 
 describe('OnboardingService', () => {
   it('extracts age group and health concerns before asking safety context', () => {

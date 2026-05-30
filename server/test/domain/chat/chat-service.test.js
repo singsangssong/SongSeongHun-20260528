@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ChatMessage } from '../src/domain/chat/entity/chat-message.entity.js';
-import { ChatSession } from '../src/domain/chat/entity/chat-session.entity.js';
-import { ChatService } from '../src/domain/chat/service/chat.service.js';
-import { UserPreference } from '../src/domain/user/entity/user-preference.entity.js';
-import { User } from '../src/domain/user/entity/user.entity.js';
+import { ChatMessage } from '../../../src/domain/chat/entity/chat-message.entity.js';
+import { ChatSession } from '../../../src/domain/chat/entity/chat-session.entity.js';
+import { ChatService } from '../../../src/domain/chat/service/chat.service.js';
+import { UserPreference } from '../../../src/domain/user/entity/user-preference.entity.js';
+import { User } from '../../../src/domain/user/entity/user.entity.js';
 
 function createRepositories() {
   const calls = [];

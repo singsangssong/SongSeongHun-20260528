@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
-import { ChatMessageRepository } from '../src/domain/chat/repository/chat-message.repository.js';
-import { ChatSessionRepository } from '../src/domain/chat/repository/chat-session.repository.js';
-import { ProductChunkRepository } from '../src/domain/product/repository/product-chunk.repository.js';
-import { ProductRepository } from '../src/domain/product/repository/product.repository.js';
-import { UserPreferenceRepository } from '../src/domain/user/repository/user-preference.repository.js';
-import { UserRepository } from '../src/domain/user/repository/user.repository.js';
+import { ChatMessageRepository } from '../../../src/domain/chat/repository/chat-message.repository.js';
+import { ChatSessionRepository } from '../../../src/domain/chat/repository/chat-session.repository.js';
+import { ProductChunkRepository } from '../../../src/domain/product/repository/product-chunk.repository.js';
+import { ProductRepository } from '../../../src/domain/product/repository/product.repository.js';
+import { UserPreferenceRepository } from '../../../src/domain/user/repository/user-preference.repository.js';
+import { UserRepository } from '../../../src/domain/user/repository/user.repository.js';
 
 class FakeDb {
   constructor(results = []) {

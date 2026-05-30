@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { AuthService } from '../src/domain/auth/service/auth.service.js';
-import { PasswordService } from '../src/domain/auth/service/password.service.js';
-import { TokenService } from '../src/domain/auth/service/token.service.js';
-import { User } from '../src/domain/user/entity/user.entity.js';
+import { AuthService } from '../../../src/domain/auth/service/auth.service.js';
+import { PasswordService } from '../../../src/domain/auth/service/password.service.js';
+import { TokenService } from '../../../src/domain/auth/service/token.service.js';
+import { User } from '../../../src/domain/user/entity/user.entity.js';
 
 describe('AuthService', () => {
   it('creates a user and returns a signed token on signup', async () => {

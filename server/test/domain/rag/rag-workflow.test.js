@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ChatRagWorkflow } from '../src/domain/rag/service/chat-rag.workflow.js';
-import { InMemoryVectorStore } from '../src/global/vector/in-memory-vector.store.js';
+import { ChatRagWorkflow } from '../../../src/domain/rag/service/chat-rag.workflow.js';
+import { InMemoryVectorStore } from '../../../src/global/vector/in-memory-vector.store.js';
 
 class FakeEmbeddingProvider {
   async embed(text) {

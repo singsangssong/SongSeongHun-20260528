@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { createAuthMiddleware } from '../src/domain/auth/middleware/auth.middleware.js';
-import { TokenService } from '../src/domain/auth/service/token.service.js';
-import { User } from '../src/domain/user/entity/user.entity.js';
+import { createAuthMiddleware } from '../../../src/domain/auth/middleware/auth.middleware.js';
+import { TokenService } from '../../../src/domain/auth/service/token.service.js';
+import { User } from '../../../src/domain/user/entity/user.entity.js';
 
 describe('auth middleware', () => {
   it('rejects requests without a bearer token', async () => {

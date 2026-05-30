@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ChatMessage } from '../src/domain/chat/entity/chat-message.entity.js';
-import { ChatSession } from '../src/domain/chat/entity/chat-session.entity.js';
-import { ProductChunk } from '../src/domain/product/entity/product-chunk.entity.js';
-import { Product } from '../src/domain/product/entity/product.entity.js';
-import { UserPreference } from '../src/domain/user/entity/user-preference.entity.js';
-import { User } from '../src/domain/user/entity/user.entity.js';
+import { ChatMessage } from '../../src/domain/chat/entity/chat-message.entity.js';
+import { ChatSession } from '../../src/domain/chat/entity/chat-session.entity.js';
+import { ProductChunk } from '../../src/domain/product/entity/product-chunk.entity.js';
+import { Product } from '../../src/domain/product/entity/product.entity.js';
+import { UserPreference } from '../../src/domain/user/entity/user-preference.entity.js';
+import { User } from '../../src/domain/user/entity/user.entity.js';
 
 describe('domain entities', () => {
   it('creates a user with an external id', () => {

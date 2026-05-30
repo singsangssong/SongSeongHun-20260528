@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { createDefaultRagWorkflow } from '../src/domain/rag/service/create-default-rag-workflow.js';
+import { createDefaultRagWorkflow } from '../../../src/domain/rag/service/create-default-rag-workflow.js';
 
 class FakeEmbeddingProvider {
   async embed(text) {

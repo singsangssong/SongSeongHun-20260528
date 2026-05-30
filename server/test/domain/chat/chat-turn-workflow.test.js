@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ChatTurnWorkflow } from '../src/domain/chat/service/chat-turn.workflow.js';
-import { UserPreference } from '../src/domain/user/entity/user-preference.entity.js';
-import { User } from '../src/domain/user/entity/user.entity.js';
+import { ChatTurnWorkflow } from '../../../src/domain/chat/service/chat-turn.workflow.js';
+import { UserPreference } from '../../../src/domain/user/entity/user-preference.entity.js';
+import { User } from '../../../src/domain/user/entity/user.entity.js';
 
 describe('ChatTurnWorkflow', () => {
   it('routes incomplete preferences to onboarding', async () => {

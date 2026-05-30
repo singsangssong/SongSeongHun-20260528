@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { OpenAIChatModel } from '../src/global/llm/openai-chat.model.js';
-import { TemplateChatModel } from '../src/global/llm/template-chat.model.js';
+import { OpenAIChatModel } from '../../../src/global/llm/openai-chat.model.js';
+import { TemplateChatModel } from '../../../src/global/llm/template-chat.model.js';
 
 const expectedSections = [
   '추천 요약',
