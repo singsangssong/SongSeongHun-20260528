@@ -31,8 +31,7 @@ button {
   display: grid;
   place-items: center;
   padding: 24px;
-  background:
-    linear-gradient(180deg, #f8fafc 0%, #eef2f6 100%);
+  background: #f4f7f9;
 }
 
 .chat {
@@ -40,7 +39,7 @@ button {
   height: min(820px, calc(100vh - 48px));
   min-height: 640px;
   display: grid;
-  grid-template-rows: auto auto 1fr auto auto auto;
+  grid-template-rows: auto auto 1fr auto auto;
   border: 1px solid #d9dee7;
   border-radius: 8px;
   background: #ffffff;
@@ -49,11 +48,11 @@ button {
 }
 
 .workspace {
-  width: min(1180px, 100%);
+  width: min(1240px, 100%);
   height: min(820px, calc(100vh - 48px));
   min-height: 640px;
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 280px 1fr;
   border: 1px solid #d9dee7;
   border-radius: 8px;
   overflow: hidden;
@@ -73,10 +72,10 @@ button {
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
   border-right: 1px solid #e7ebf0;
-  padding: 18px;
-  background: #f7fafb;
+  padding: 18px 16px;
+  background: #f8fafb;
 }
 
 .sidebar span,
@@ -87,7 +86,8 @@ button {
   font-weight: 700;
 }
 
-.sidebar strong {
+.sidebar strong,
+.sessionList button strong {
   display: block;
   margin-top: 4px;
   overflow: hidden;
@@ -97,11 +97,68 @@ button {
   white-space: nowrap;
 }
 
+.sidebarBrand {
+  border-bottom: 1px solid #e3e8ee;
+  padding: 0 2px 14px;
+}
+
+.sidebarBrand strong {
+  margin-top: 2px;
+  color: #173f46;
+  font-size: 18px;
+}
+
+.userCard {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 11px;
+  align-items: center;
+  border: 1px solid #dbe3ea;
+  border-radius: 8px;
+  padding: 11px;
+  background: #ffffff;
+}
+
+.avatar {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #e7f3f2;
+  color: #1d5960;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.sidebarActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 .sessionList {
   display: grid;
   gap: 8px;
-  margin-top: 10px;
+  min-height: 0;
   overflow-y: auto;
+}
+
+.sessionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sessionHeader strong {
+  min-width: 26px;
+  margin: 0;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #e7f3f2;
+  color: #245b63;
+  font-size: 12px;
+  text-align: center;
 }
 
 .emptyState {
@@ -116,23 +173,27 @@ button {
 }
 
 .sessionList button {
-  min-height: 38px;
+  min-height: 56px;
   border: 1px solid #d7dde5;
   border-radius: 8px;
-  padding: 0 10px;
+  padding: 9px 10px;
   background: #ffffff;
   color: #344054;
   cursor: pointer;
   overflow: hidden;
   text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .sessionList button.active,
 .sessionList button:hover {
   border-color: #245b63;
   background: #edf6f7;
+}
+
+.sessionList button span {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .authPanel {
@@ -144,12 +205,12 @@ button {
   box-shadow: 0 18px 50px rgb(38 45 56 / 12%);
 }
 
-.authPanel p,
+.authHeader p,
 .authPanel h1 {
   margin: 0;
 }
 
-.authPanel p {
+.authHeader p {
   color: #687385;
   font-size: 13px;
   font-weight: 700;
@@ -189,8 +250,19 @@ button {
 
 .authForm {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   margin-top: 14px;
+}
+
+.authForm label {
+  display: grid;
+  gap: 6px;
+}
+
+.authForm label span {
+  color: #475467;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .authForm input {
@@ -243,6 +315,20 @@ button {
   background: #ffffff;
   color: #344054;
   cursor: pointer;
+}
+
+.primaryButton {
+  min-height: 38px;
+  border: 1px solid #245b63;
+  border-radius: 8px;
+  padding: 0 14px;
+  background: #245b63;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.primaryButton:hover {
+  background: #1d4d54;
 }
 
 .ghostButton:hover {
@@ -373,9 +459,8 @@ button {
 .quickPrompts {
   display: flex;
   gap: 8px;
-  padding: 12px 18px 6px;
+  padding: 0;
   overflow-x: auto;
-  border-top: 1px solid #e7ebf0;
   background: #ffffff;
 }
 
@@ -404,8 +489,21 @@ button {
   cursor: not-allowed;
 }
 
+.chatFooter {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid #e7ebf0;
+  padding: 12px 18px;
+  background: #ffffff;
+}
+
+.evidenceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .retrievalPanel {
-  margin: 10px 18px 0;
   border: 1px solid #e5d0a8;
   border-radius: 8px;
   padding: 10px 12px;
@@ -508,6 +606,10 @@ button {
     border-bottom: 1px solid #e7ebf0;
   }
 
+  .sidebarActions {
+    grid-template-columns: 1fr;
+  }
+
   .chatHeader {
     align-items: flex-start;
     padding: 16px;
@@ -519,6 +621,10 @@ button {
 
   .statusBar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .evidenceGrid {
+    grid-template-columns: 1fr;
   }
 
   .messages {

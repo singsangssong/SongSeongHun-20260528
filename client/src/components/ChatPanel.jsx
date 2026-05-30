@@ -23,7 +23,7 @@ export function ChatPanel({
     <section className="chat">
       <header className="chatHeader">
         <div>
-          <p>Levit Assignment MVP</p>
+          <p>AI Supplement Advisor</p>
           <h1>건강기능식품 추천 에이전트</h1>
         </div>
         <button className="ghostButton" type="button" onClick={onNewChat}>
@@ -54,43 +54,49 @@ export function ChatPanel({
 
       <MessageList messages={messages} isLoading={isLoading} />
 
-      <div className="quickPrompts" aria-label="example prompts">
-        {quickPrompts.map((prompt) => (
-          <button
-            key={prompt}
-            type="button"
-            onClick={() => onQuickPrompt(prompt)}
-            disabled={isLoading}
-          >
-            {prompt}
-          </button>
-        ))}
-      </div>
-
-      {retrievedDocumentIds.length > 0 && (
-        <div className="retrievalPanel">
-          <span>최근 RAG 참조 문서</span>
-          <strong>{retrievedDocumentIds.join(', ')}</strong>
+      <div className="chatFooter">
+        <div className="quickPrompts" aria-label="example prompts">
+          {quickPrompts.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              onClick={() => onQuickPrompt(prompt)}
+              disabled={isLoading}
+            >
+              {prompt}
+            </button>
+          ))}
         </div>
-      )}
 
-      {recommendations.length > 0 && (
-        <div className="retrievalPanel">
-          <span>추천 상품 링크</span>
-          <div className="panelLinks">
-            {recommendations.map((recommendation) => (
-              <a
-                key={`${recommendation.name}-${recommendation.source_url}`}
-                href={recommendation.source_url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {recommendation.name}
-              </a>
-            ))}
+        {(retrievedDocumentIds.length > 0 || recommendations.length > 0) && (
+          <div className="evidenceGrid">
+            {retrievedDocumentIds.length > 0 && (
+              <div className="retrievalPanel">
+                <span>최근 RAG 참조 문서</span>
+                <strong>{retrievedDocumentIds.join(', ')}</strong>
+              </div>
+            )}
+
+            {recommendations.length > 0 && (
+              <div className="retrievalPanel">
+                <span>추천 상품 링크</span>
+                <div className="panelLinks">
+                  {recommendations.map((recommendation) => (
+                    <a
+                      key={`${recommendation.name}-${recommendation.source_url}`}
+                      href={recommendation.source_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {recommendation.name}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {error && <p className="error">{error}</p>}
 

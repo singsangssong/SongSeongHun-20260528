@@ -11,8 +11,8 @@ export function AuthPanel({
   return (
     <main className="app">
       <section className="authPanel">
-        <div>
-          <p>Levit Assignment MVP</p>
+        <div className="authHeader">
+          <p>Levit Assignment</p>
           <h1>건강기능식품 추천 에이전트</h1>
         </div>
         <div className="authTabs">
@@ -32,25 +32,34 @@ export function AuthPanel({
           </button>
         </div>
         <form className="authForm" onSubmit={onSubmit}>
-          <input
-            value={authForm.email}
-            onChange={(event) => onAuthFormChange('email', event.target.value)}
-            placeholder="email@example.com"
-            type="email"
-          />
-          {authMode === 'signup' && (
+          <label>
+            <span>이메일</span>
             <input
-              value={authForm.nickname}
-              onChange={(event) => onAuthFormChange('nickname', event.target.value)}
-              placeholder="닉네임"
+              value={authForm.email}
+              onChange={(event) => onAuthFormChange('email', event.target.value)}
+              placeholder="email@example.com"
+              type="email"
             />
+          </label>
+          {authMode === 'signup' && (
+            <label>
+              <span>닉네임</span>
+              <input
+                value={authForm.nickname}
+                onChange={(event) => onAuthFormChange('nickname', event.target.value)}
+                placeholder="닉네임"
+              />
+            </label>
           )}
-          <input
-            value={authForm.password}
-            onChange={(event) => onAuthFormChange('password', event.target.value)}
-            placeholder="비밀번호 8자 이상"
-            type="password"
-          />
+          <label>
+            <span>비밀번호</span>
+            <input
+              value={authForm.password}
+              onChange={(event) => onAuthFormChange('password', event.target.value)}
+              placeholder="비밀번호 8자 이상"
+              type="password"
+            />
+          </label>
           <button type="submit">
             {authMode === 'signup' ? '회원가입' : '로그인'}
           </button>
